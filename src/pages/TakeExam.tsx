@@ -310,6 +310,8 @@ export default function TakeExam() {
                   {q.options.map((opt: string, i: number) => {
                     const letter = String.fromCharCode(65 + i);
                     const isSelected = answers[q.id] === letter;
+                    let cleanOpt = opt.replace(new RegExp(`^${letter}[\\.\\:\\)]\\s*|^${letter}\\s+`, 'i'), '').trim();
+                    if (!cleanOpt) cleanOpt = opt;
                     return (
                       <label key={i} className={`flex items-start p-4 border rounded-xl cursor-pointer transition-all duration-200 ${isSelected ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500' : 'hover:bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center h-5 mt-0.5">
@@ -324,7 +326,7 @@ export default function TakeExam() {
                         </div>
                         <div className="ml-3 flex-1 flex items-start">
                           <span className="font-semibold text-gray-700 mr-2 mt-0.5">{letter}.</span>
-                          <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={opt} /></div>
+                          <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
                         </div>
                       </label>
                     );
@@ -340,11 +342,14 @@ export default function TakeExam() {
                     {q.options.map((opt: string, i: number) => {
                       const studentArr = answers[q.id] || [];
                       const currentVal = studentArr[i];
+                      const letter = String.fromCharCode(97 + i);
+                      let cleanOpt = opt.replace(new RegExp(`^${letter}[\\.\\:\\)]\\s*|^${letter}\\s+`, 'i'), '').trim();
+                      if (!cleanOpt) cleanOpt = opt;
                       return (
                         <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors gap-4">
                           <div className="flex-1 flex items-start">
-                            <span className="font-semibold text-gray-700 mr-3 mt-0.5">{String.fromCharCode(97 + i)}.</span>
-                            <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={opt} /></div>
+                            <span className="font-semibold text-gray-700 mr-3 mt-0.5">{letter}.</span>
+                            <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
                           </div>
                           <div className="flex space-x-2 sm:flex-shrink-0">
                             <button

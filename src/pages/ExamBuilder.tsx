@@ -288,6 +288,13 @@ export default function ExamBuilder() {
             if (q.type === 'true_false' && !q.correctAnswer) {
               q.correctAnswer = '[null, null, null, null]';
             }
+            if (q.options && Array.isArray(q.options)) {
+              q.options = q.options.map((opt: string, i: number) => {
+                const letter = q.type === 'true_false' ? String.fromCharCode(97 + i) : String.fromCharCode(65 + i);
+                let cleanOpt = opt.replace(new RegExp(`^${letter}[\\.\\:\\)]\\s*|^${letter}\\s+`, 'i'), '').trim();
+                return cleanOpt || opt;
+              });
+            }
             return q;
           });
 
@@ -598,12 +605,17 @@ export default function ExamBuilder() {
                   
                   {q.options && q.options.length > 0 && (
                     <div className="mt-3 space-y-2">
-                      {q.options.map((opt: string, i: number) => (
-                        <div key={i} className="flex items-start">
-                          <span className="font-medium mr-2">{String.fromCharCode(65 + i)}.</span>
-                          <div className="flex-1 overflow-hidden"><MathText text={opt} /></div>
-                        </div>
-                      ))}
+                      {q.options.map((opt: string, i: number) => {
+                        const letter = q.type === 'true_false' ? String.fromCharCode(97 + i) : String.fromCharCode(65 + i);
+                        let cleanOpt = opt.replace(new RegExp(`^${letter}[\\.\\:\\)]\\s*|^${letter}\\s+`, 'i'), '').trim();
+                        if (!cleanOpt) cleanOpt = opt;
+                        return (
+                          <div key={i} className="flex items-start">
+                            <span className="font-medium mr-2">{letter}.</span>
+                            <div className="flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   
