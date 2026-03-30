@@ -17,7 +17,7 @@ export default function MathText({ text }: MathTextProps) {
     .replace(/\\\]/g, '$$$');
 
   return (
-    <div className="math-text text-gray-800 leading-relaxed">
+    <div className="math-text text-gray-800 leading-relaxed whitespace-pre-wrap">
       <Latex>{processedText}</Latex>
     </div>
   );

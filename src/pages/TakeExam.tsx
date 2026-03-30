@@ -4,7 +4,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import MathText from '../components/MathText';
-import { Clock, AlertCircle, ChevronLeft, CheckCircle } from 'lucide-react';
+import { Clock, AlertCircle, ChevronLeft, CheckCircle, BookOpen } from 'lucide-react';
 
 export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
@@ -157,8 +157,8 @@ export default function TakeExam() {
 
   if (submittedResult) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-in fade-in zoom-in duration-500 border border-gray-100">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col items-center py-12 px-4">
+        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-3xl w-full text-center animate-in fade-in zoom-in duration-500 border border-gray-100">
           <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
             <CheckCircle className="w-12 h-12" />
           </div>
@@ -191,6 +191,55 @@ export default function TakeExam() {
               </div>
             )}
           </div>
+
+          {submittedResult.incorrectQuestions.length > 0 && (
+            <div className="mb-8 text-left">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <BookOpen className="w-5 h-5 mr-2 text-indigo-600" />
+                Lời giải chi tiết các câu sai
+              </h3>
+              <div className="space-y-6">
+                {submittedResult.incorrectQuestions.map(id => {
+                  const idx = exam.questions.findIndex((q:any) => q.id === id);
+                  const question = exam.questions[idx];
+                  if (!question) return null;
+
+                  return (
+                    <div key={id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                      <div className="font-bold text-lg text-indigo-700 mb-3">Câu {idx + 1}</div>
+                      <div className="text-gray-800 mb-4 font-medium overflow-hidden">
+                        <MathText text={question.content} />
+                      </div>
+                      
+                      {question.imageUrls && question.imageUrls.length > 0 && (
+                        <div className="mb-4 space-y-4">
+                          {question.imageUrls.map((url: string, imgIdx: number) => (
+                            <img key={imgIdx} src={url} alt={`Câu ${idx + 1} - ảnh ${imgIdx + 1}`} className="max-w-full h-auto rounded-md border border-gray-200" />
+                          ))}
+                        </div>
+                      )}
+                      {question.imageUrl && (!question.imageUrls || question.imageUrls.length === 0) && (
+                        <div className="mb-4">
+                          <img src={question.imageUrl} alt={`Câu ${idx + 1}`} className="max-w-full h-auto rounded-md border border-gray-200" />
+                        </div>
+                      )}
+
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mt-4">
+                        <div className="font-semibold text-indigo-800 mb-2">Lời giải:</div>
+                        <div className="text-gray-700 overflow-hidden">
+                          {question.explanation ? (
+                            <MathText text={question.explanation} />
+                          ) : (
+                            <span className="italic text-gray-500">Giáo viên chưa cung cấp lời giải cho câu hỏi này.</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={() => navigate('/student')}
@@ -236,7 +285,7 @@ export default function TakeExam() {
             <div key={q.id} className="bg-white shadow-sm border border-gray-200 sm:rounded-3xl p-6 md:p-8 transition-all hover:shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-start mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5 shadow-sm">
                 <span className="font-black text-lg mr-4 text-blue-700 whitespace-nowrap bg-white px-4 py-1.5 rounded-xl shadow-sm mb-3 sm:mb-0 border border-blue-100">Câu {index + 1}:</span>
-                <div className="text-gray-800 text-lg leading-relaxed mt-1 sm:mt-0 flex-1 font-medium">
+                <div className="text-gray-800 text-lg leading-relaxed mt-1 sm:mt-0 flex-1 font-medium overflow-hidden">
                   <MathText text={q.content} />
                 </div>
               </div>
@@ -275,7 +324,7 @@ export default function TakeExam() {
                         </div>
                         <div className="ml-3 flex-1 flex items-start">
                           <span className="font-semibold text-gray-700 mr-2 mt-0.5">{letter}.</span>
-                          <div className="text-gray-800 flex-1"><MathText text={opt} /></div>
+                          <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={opt} /></div>
                         </div>
                       </label>
                     );
@@ -295,7 +344,7 @@ export default function TakeExam() {
                         <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors gap-4">
                           <div className="flex-1 flex items-start">
                             <span className="font-semibold text-gray-700 mr-3 mt-0.5">{String.fromCharCode(97 + i)}.</span>
-                            <div className="text-gray-800 flex-1"><MathText text={opt} /></div>
+                            <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={opt} /></div>
                           </div>
                           <div className="flex space-x-2 sm:flex-shrink-0">
                             <button

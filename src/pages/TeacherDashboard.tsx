@@ -107,6 +107,8 @@ export default function TeacherDashboard() {
         setStudentError('Địa chỉ email không hợp lệ (phải có dạng ten@mien.com).');
       } else if (error.code === 'auth/weak-password') {
         setStudentError('Mật khẩu quá yếu (phải có ít nhất 6 ký tự).');
+      } else if (error.code === 'auth/invalid-credential') {
+        setStudentError('Thông tin xác thực không hợp lệ. Vui lòng kiểm tra lại email và mật khẩu.');
       } else {
         setStudentError('Lỗi: ' + error.message);
       }

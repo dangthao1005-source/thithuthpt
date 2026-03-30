@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
+import MathText from '../components/MathText';
 
 export default function StudentExamResult() {
   const { examId } = useParams<{ examId: string }>();
@@ -44,8 +45,8 @@ export default function StudentExamResult() {
   if (!exam || !submission) return <div className="flex h-screen items-center justify-center bg-gray-50 text-red-500 font-medium text-lg">Không tìm thấy kết quả.</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-in fade-in zoom-in duration-500 border border-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col items-center py-12 px-4">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-3xl w-full text-center animate-in fade-in zoom-in duration-500 border border-gray-100">
         <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
           <CheckCircle className="w-12 h-12" />
         </div>
@@ -78,6 +79,55 @@ export default function StudentExamResult() {
             </div>
           )}
         </div>
+
+        {submission.incorrectQuestions && submission.incorrectQuestions.length > 0 && (
+          <div className="mb-8 text-left">
+            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+              <BookOpen className="w-5 h-5 mr-2 text-indigo-600" />
+              Lời giải chi tiết các câu sai
+            </h3>
+            <div className="space-y-6">
+              {submission.incorrectQuestions.map((id: string) => {
+                const idx = exam.questions.findIndex((q:any) => q.id === id);
+                const question = exam.questions[idx];
+                if (!question) return null;
+
+                return (
+                  <div key={id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                    <div className="font-bold text-lg text-indigo-700 mb-3">Câu {idx + 1}</div>
+                    <div className="text-gray-800 mb-4 font-medium overflow-hidden">
+                      <MathText text={question.content} />
+                    </div>
+                    
+                    {question.imageUrls && question.imageUrls.length > 0 && (
+                      <div className="mb-4 space-y-4">
+                        {question.imageUrls.map((url: string, imgIdx: number) => (
+                          <img key={imgIdx} src={url} alt={`Câu ${idx + 1} - ảnh ${imgIdx + 1}`} className="max-w-full h-auto rounded-md border border-gray-200" />
+                        ))}
+                      </div>
+                    )}
+                    {question.imageUrl && (!question.imageUrls || question.imageUrls.length === 0) && (
+                      <div className="mb-4">
+                        <img src={question.imageUrl} alt={`Câu ${idx + 1}`} className="max-w-full h-auto rounded-md border border-gray-200" />
+                      </div>
+                    )}
+
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mt-4">
+                      <div className="font-semibold text-indigo-800 mb-2">Lời giải:</div>
+                      <div className="text-gray-700 overflow-hidden">
+                        {question.explanation ? (
+                          <MathText text={question.explanation} />
+                        ) : (
+                          <span className="italic text-gray-500">Giáo viên chưa cung cấp lời giải cho câu hỏi này.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <button
           onClick={() => navigate('/student')}

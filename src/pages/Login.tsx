@@ -36,11 +36,11 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
-          Hệ thống thi thử THPT
+        <h2 className="mt-6 text-center text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 py-4 leading-normal">
+          TOÁN THẦY TRỌNG 3T
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 font-medium">
-          Đăng nhập để tiếp tục
+          Hệ thống thi thử THPT 2026
         </p>
       </div>
 

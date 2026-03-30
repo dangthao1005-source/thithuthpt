@@ -7,7 +7,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { Upload, Loader2, Save, ArrowLeft, Image as ImageIcon, Check, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import 'katex/dist/katex.min.css';
-import Latex from 'react-latex-next';
+import MathText from '../components/MathText';
 
 export default function ExamBuilder() {
   const { appUser } = useAuth();
@@ -109,6 +109,7 @@ export default function ExamBuilder() {
             + Nếu part = 1: 'A', 'B', 'C', hoặc 'D'.
             + Nếu part = 2: chuỗi JSON mảng 4 boolean, ví dụ '[true, false, true, false]' tương ứng với Đ, S, Đ, S cho 4 ý a, b, c, d.
             + Nếu part = 3: chuỗi chứa số đáp án, ví dụ '12.5' hoặc '-3')
+          - explanation: chuỗi (RẤT QUAN TRỌNG: Nếu trong ảnh/file có kèm lời giải chi tiết (thường bắt đầu bằng chữ "Lời giải", "Hướng dẫn giải", "Giải:", v.v.), hãy trích xuất TOÀN BỘ nội dung phần lời giải đó vào đây. Sử dụng LaTeX cho công thức toán học. Nếu không có thì để trống)
         `;
 
         try {
@@ -134,7 +135,8 @@ export default function ExamBuilder() {
                   properties: {
                     part: { type: Type.INTEGER },
                     questionNumber: { type: Type.INTEGER },
-                    answer: { type: Type.STRING }
+                    answer: { type: Type.STRING },
+                    explanation: { type: Type.STRING }
                   },
                   required: ["part", "questionNumber", "answer"]
                 }
@@ -169,6 +171,9 @@ export default function ExamBuilder() {
             
             if (matchingAnswer) {
               newQs[i].correctAnswer = matchingAnswer.answer;
+              if (matchingAnswer.explanation) {
+                newQs[i].explanation = matchingAnswer.explanation;
+              }
             }
 
             currentQuestionInPart++;
@@ -238,6 +243,7 @@ export default function ExamBuilder() {
           - content: chuỗi (Nội dung câu hỏi. Sử dụng LaTeX cho công thức toán học, bọc trong dấu $ $)
           - options: mảng chuỗi (Đối với multiple_choice là 4 đáp án A, B, C, D. Đối với true_false là 4 phát biểu a, b, c, d. short_answer thì để mảng rỗng)
           - correctAnswer: chuỗi (Nếu đề có đáp án thì điền, không thì để trống. multiple_choice: 'A', 'B', 'C', 'D'. true_false: chuỗi JSON mảng 4 boolean ví dụ '[true, false, true, false]'. short_answer: đáp án dạng số)
+          - explanation: chuỗi (RẤT QUAN TRỌNG: Nếu trong file có sẵn phần lời giải chi tiết (thường bắt đầu bằng chữ "Lời giải", "Hướng dẫn giải", "Giải:", v.v. ở dưới mỗi câu), hãy trích xuất TOÀN BỘ nội dung phần lời giải đó vào đây. Sử dụng LaTeX cho công thức toán học. Nếu không có thì để trống)
         `;
 
         try {
@@ -265,7 +271,8 @@ export default function ExamBuilder() {
                     type: { type: Type.STRING },
                     content: { type: Type.STRING },
                     options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    correctAnswer: { type: Type.STRING }
+                    correctAnswer: { type: Type.STRING },
+                    explanation: { type: Type.STRING }
                   },
                   required: ["id", "type", "content"]
                 }
@@ -551,8 +558,8 @@ export default function ExamBuilder() {
                     </div>
                   </div>
                   
-                  <div className="mt-4 text-gray-800 whitespace-pre-wrap font-medium bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <Latex>{q.content}</Latex>
+                  <div className="mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <MathText text={q.content} />
                   </div>
 
                   {q.imageUrls && q.imageUrls.length > 0 && (
@@ -594,7 +601,7 @@ export default function ExamBuilder() {
                       {q.options.map((opt: string, i: number) => (
                         <div key={i} className="flex items-start">
                           <span className="font-medium mr-2">{String.fromCharCode(65 + i)}.</span>
-                          <span><Latex>{opt}</Latex></span>
+                          <div className="flex-1 overflow-hidden"><MathText text={opt} /></div>
                         </div>
                       ))}
                     </div>
@@ -681,6 +688,21 @@ export default function ExamBuilder() {
                         placeholder="Nhập đáp án (ví dụ: 12.5)"
                       />
                     )}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Lời giải chi tiết (tùy chọn)</label>
+                    <textarea
+                      value={q.explanation || ''}
+                      onChange={(e) => {
+                        const newQs = [...questions];
+                        newQs[index].explanation = e.target.value;
+                        setQuestions(newQs);
+                      }}
+                      rows={3}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="Nhập lời giải chi tiết cho câu hỏi này..."
+                    />
                   </div>
                 </div>
               ))}
