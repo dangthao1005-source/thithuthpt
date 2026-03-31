@@ -109,7 +109,7 @@ export default function ExamBuilder() {
             + Nếu part = 1: 'A', 'B', 'C', hoặc 'D'.
             + Nếu part = 2: chuỗi JSON mảng 4 boolean, ví dụ '[true, false, true, false]' tương ứng với Đ, S, Đ, S cho 4 ý a, b, c, d.
             + Nếu part = 3: chuỗi chứa số đáp án, ví dụ '12.5' hoặc '-3')
-          - explanation: chuỗi (RẤT QUAN TRỌNG: Nếu trong ảnh/file có kèm lời giải chi tiết (thường bắt đầu bằng chữ "Lời giải", "Hướng dẫn giải", "Giải:", v.v.), hãy trích xuất TOÀN BỘ nội dung phần lời giải đó vào đây. Sử dụng LaTeX cho công thức toán học. Nếu không có thì để trống)
+          - explanation: chuỗi (BẮT BUỘC: Bạn PHẢI tìm và trích xuất TOÀN BỘ phần lời giải chi tiết cho câu hỏi này. Lời giải có thể nằm ngay dưới câu hỏi hoặc nằm ở phần cuối của đề thi. Hãy tìm kỹ toàn bộ file để ghép đúng lời giải vào câu hỏi tương ứng. Sử dụng LaTeX cho công thức toán học. Chỉ để trống nếu thực sự không có bất kỳ lời giải nào trong file)
         `;
 
         try {
@@ -232,6 +232,14 @@ export default function ExamBuilder() {
           $$
           4. ĐỐI VỚI ĐỒ THỊ HÀM SỐ HOẶC HÌNH VẼ HÌNH HỌC: Không thể vẽ bằng array, hãy bỏ qua hình vẽ và KHÔNG chèn bất kỳ dòng chữ nào (như "[CẦN THÊM ẢNH ĐỒ THỊ/HÌNH VẼ]") vào nội dung. Giáo viên sẽ tự xem đề gốc và thêm ảnh sau.
           
+          QUY TẮC QUAN TRỌNG VỀ LỜI GIẢI CHI TIẾT (EXPLANATION) VÀ TÁCH CÂU HỎI:
+          - TRONG FILE PDF THƯỜNG CÓ SẴN LỜI GIẢI CHI TIẾT (bắt đầu bằng chữ "Lời giải", "Hướng dẫn giải", "Giải:", "HDG:").
+          - BẠN BẮT BUỘC PHẢI TÌM VÀ TRÍCH XUẤT TOÀN BỘ NỘI DUNG LỜI GIẢI NÀY VÀO TRƯỜNG \`explanation\`.
+          - ĐÂY LÀ YÊU CẦU TUYỆT ĐỐI QUAN TRỌNG. KHÔNG ĐƯỢC BỎ QUA PHẦN LỜI GIẢI NẾU CÓ TRONG FILE.
+          - Nếu lời giải nằm ngay dưới câu hỏi, hãy lấy nó. Nếu lời giải nằm ở một phần riêng ở cuối đề thi (Bảng đáp án và lời giải chi tiết), bạn PHẢI đối chiếu và lấy đúng lời giải cho từng câu.
+          - TUYỆT ĐỐI KHÔNG ĐƯỢC để dính phần lời giải (từ chữ "Lời giải", "Giải", "Chọn A/B/C/D" trở đi) vào bên trong trường \`content\` của câu hỏi. Bạn PHẢI CẮT NÓ RA và đưa vào \`explanation\`.
+          - Nếu trong lời giải có nói rõ đáp án nào đúng (ví dụ: "Chọn A", "Đáp án B"), hãy tự động trích xuất chữ cái đó vào trường \`correctAnswer\`.
+          
           Đề thi thường có 3 phần:
           1. Trắc nghiệm nhiều lựa chọn (thường 12 câu)
           2. Trắc nghiệm đúng/sai (thường 4 câu, mỗi câu 4 ý a, b, c, d)
@@ -243,7 +251,7 @@ export default function ExamBuilder() {
           - content: chuỗi (Nội dung câu hỏi. Sử dụng LaTeX cho công thức toán học, bọc trong dấu $ $)
           - options: mảng chuỗi (Đối với multiple_choice là 4 đáp án A, B, C, D. Đối với true_false là 4 phát biểu a, b, c, d. short_answer thì để mảng rỗng)
           - correctAnswer: chuỗi (Nếu đề có đáp án thì điền, không thì để trống. multiple_choice: 'A', 'B', 'C', 'D'. true_false: chuỗi JSON mảng 4 boolean ví dụ '[true, false, true, false]'. short_answer: đáp án dạng số)
-          - explanation: chuỗi (RẤT QUAN TRỌNG: Nếu trong file có sẵn phần lời giải chi tiết (thường bắt đầu bằng chữ "Lời giải", "Hướng dẫn giải", "Giải:", v.v. ở dưới mỗi câu), hãy trích xuất TOÀN BỘ nội dung phần lời giải đó vào đây. Sử dụng LaTeX cho công thức toán học. Nếu không có thì để trống)
+          - explanation: chuỗi (BẮT BUỘC: Bạn PHẢI tìm và trích xuất TOÀN BỘ phần lời giải chi tiết cho câu hỏi này. Lời giải có thể nằm ngay dưới câu hỏi hoặc nằm ở phần cuối của đề thi. Hãy tìm kỹ toàn bộ file để ghép đúng lời giải vào câu hỏi tương ứng. Sử dụng LaTeX cho công thức toán học. Chỉ để trống nếu thực sự không có bất kỳ lời giải nào trong file)
         `;
 
         try {
