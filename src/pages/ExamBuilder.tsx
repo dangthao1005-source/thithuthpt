@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, updateDoc, getDocs, query, where } from 'firebase/firestore';
 import { useNavigate, useParams } from 'react-router-dom';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Upload, Loader2, Save, ArrowLeft, Image as ImageIcon, Check, FileText, Edit2 } from 'lucide-react';
@@ -424,6 +424,67 @@ export default function ExamBuilder() {
           endTime
           // Do not update createdAt or teacherId
         });
+
+        // RECALCULATE SUBMISSIONS
+        try {
+          const submissionsQuery = query(collection(db, 'submissions'), where('examId', '==', examId));
+          const submissionsSnapshot = await getDocs(submissionsQuery);
+          
+          const updatePromises = submissionsSnapshot.docs.map(async (submissionDoc) => {
+            const submissionData = submissionDoc.data();
+            // answers is stored as JSON string
+            const answers = JSON.parse(submissionData.answers || '{}');
+            
+            let score = 0;
+            let incorrectQuestions: string[] = [];
+
+            questions.forEach((q: any) => {
+              const studentAnswer = answers[q.id];
+              const correctAnswer = q.correctAnswer;
+
+              if (q.type === 'multiple_choice') {
+                if (studentAnswer === correctAnswer) {
+                  score += 0.25;
+                } else {
+                  incorrectQuestions.push(q.id);
+                }
+              } else if (q.type === 'true_false') {
+                try {
+                  const correctArr = JSON.parse(correctAnswer || '[]');
+                  const studentArr = studentAnswer || [];
+                  let correctParts = 0;
+                  for (let i = 0; i < 4; i++) {
+                    if (studentArr[i] === correctArr[i]) correctParts++;
+                  }
+                  if (correctParts === 1) score += 0.1;
+                  else if (correctParts === 2) score += 0.25;
+                  else if (correctParts === 3) score += 0.5;
+                  else if (correctParts === 4) score += 1.0;
+                  
+                  if (correctParts < 4) incorrectQuestions.push(q.id);
+                } catch (e) {
+                  incorrectQuestions.push(q.id);
+                }
+              } else if (q.type === 'short_answer') {
+                if (studentAnswer && studentAnswer.trim() === correctAnswer?.trim()) {
+                  score += 0.5;
+                } else {
+                  incorrectQuestions.push(q.id);
+                }
+              }
+            });
+
+            await updateDoc(doc(db, 'submissions', submissionDoc.id), {
+              score,
+              incorrectQuestions
+            });
+          });
+
+          await Promise.all(updatePromises);
+        } catch (subErr) {
+          console.error("Error recalculating submissions:", subErr);
+        }
+
       } else {
         // Create new exam
         const examData = {
