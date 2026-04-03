@@ -62,13 +62,35 @@ export default function StudentExamResult() {
           {submission.incorrectQuestions && submission.incorrectQuestions.length > 0 ? (
             <div className="mt-8 text-sm text-rose-600 bg-rose-50/80 border border-rose-100 p-5 rounded-xl text-left shadow-sm">
               <span className="font-bold block mb-2 flex items-center"><AlertCircle className="w-4 h-4 mr-1.5"/> Sai các câu:</span> 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
                 {submission.incorrectQuestions.map((id: string) => {
                   const idx = exam.questions.findIndex((q:any) => q.id === id);
+                  const q = exam.questions[idx];
+                  if (!q) return null;
+                  
+                  let studentAns: any = '';
+                  try {
+                    const parsedAnswers = typeof submission.answers === 'string' ? JSON.parse(submission.answers) : submission.answers;
+                    studentAns = parsedAnswers[id];
+                  } catch (e) {}
+                  
+                  let displayStudentAns = String(studentAns || '(Trống)');
+                  let displayCorrectAns = String(q.correctAnswer || '(Trống)');
+                  
+                  if (q.type === 'true_false') {
+                    try {
+                      const sArr = Array.isArray(studentAns) ? studentAns : [];
+                      const cArr = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer || '[]') : (q.correctAnswer || []);
+                      displayStudentAns = sArr.map((v: any) => v === true ? 'Đ' : v === false ? 'S' : '-').join('');
+                      displayCorrectAns = cArr.map((v: any) => v === true ? 'Đ' : v === false ? 'S' : '-').join('');
+                      if (!displayStudentAns) displayStudentAns = '(Trống)';
+                    } catch(e) {}
+                  }
+                  
                   return (
-                    <span key={id} className="bg-white px-2.5 py-1 rounded-md shadow-sm border border-rose-100 font-semibold">
-                      {idx !== -1 ? idx + 1 : id}
-                    </span>
+                    <div key={id} className="bg-white px-3 py-2 rounded-md shadow-sm border border-rose-100">
+                      <span className="font-bold">Câu {idx !== -1 ? idx + 1 : '?'}:</span> Bạn chọn <span className="line-through text-rose-400 font-semibold">{displayStudentAns}</span> <span className="text-emerald-600 font-bold ml-1">(Đáp án: {displayCorrectAns})</span>
+                    </div>
                   );
                 })}
               </div>

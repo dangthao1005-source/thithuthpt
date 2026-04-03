@@ -80,7 +80,7 @@ export default function ExamBuilder() {
 
   const parseAnswerKeyWithAI = async () => {
     if (!answerKeyFile || questions.length === 0) {
-      setAnswerKeyError('Vui lòng tải lên ảnh đáp án và đảm bảo đã có danh sách câu hỏi.');
+      setAnswerKeyError('Vui lòng tải lên file đáp án/lời giải và đảm bảo đã trích xuất câu hỏi ở Bước 1.');
       return;
     }
     setIsParsingAnswerKey(true);
@@ -96,23 +96,21 @@ export default function ExamBuilder() {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         
         const prompt = `
-          Bạn là một chuyên gia nhận diện đáp án đề thi THPT Quốc gia.
-          Hãy trích xuất đáp án từ hình ảnh bảng đáp án này.
+          Bạn là một chuyên gia phân tích đề thi THPT Quốc gia.
+          Hãy đọc file đính kèm (có thể là file ảnh hoặc PDF) chứa đáp án và lời giải chi tiết.
           
-          Bảng đáp án thường có 3 phần:
-          1. Trắc nghiệm nhiều lựa chọn (đáp án là A, B, C, hoặc D)
-          2. Trắc nghiệm đúng/sai (mỗi câu có 4 ý a, b, c, d, đáp án là Đ hoặc S)
-          3. Trắc nghiệm trả lời ngắn (đáp án là một số)
+          Dưới đây là danh sách các câu hỏi đã được trích xuất từ đề thi (chỉ hiển thị một phần nội dung để bạn đối chiếu):
+          ${JSON.stringify(questions.map((q, i) => ({ id: q.id, questionNumber: i + 1, contentSnippet: q.content.substring(0, 150) + '...', type: q.type })))}
           
-          Hãy trả về một mảng JSON chứa đáp án của TẤT CẢ các câu hỏi tìm thấy trong ảnh.
-          Mỗi phần tử trong mảng có cấu trúc:
-          - part: số nguyên (1, 2, hoặc 3 tương ứng với 3 phần trên)
-          - questionNumber: số nguyên (số thứ tự câu hỏi trong phần đó, ví dụ: 1, 2, 3...)
-          - answer: chuỗi (Nội dung đáp án.
-            + Nếu part = 1: 'A', 'B', 'C', hoặc 'D'.
-            + Nếu part = 2: chuỗi JSON mảng 4 boolean, ví dụ '[true, false, true, false]' tương ứng với Đ, S, Đ, S cho 4 ý a, b, c, d.
-            + Nếu part = 3: chuỗi chứa số đáp án, ví dụ '12.5' hoặc '-3')
-          - explanation: chuỗi (BẮT BUỘC: Bạn PHẢI tìm và trích xuất TOÀN BỘ phần lời giải chi tiết cho câu hỏi này. TUYỆT ĐỐI KHÔNG để dính lời giải vào trường content. Lời giải có thể nằm ngay dưới câu hỏi hoặc nằm ở phần cuối của đề thi. Hãy tìm kỹ toàn bộ file để ghép đúng lời giải vào câu hỏi tương ứng. Sử dụng LaTeX cho công thức toán học. Chỉ để trống nếu thực sự không có bất kỳ lời giải nào trong file. ĐÂY LÀ YÊU CẦU BẮT BUỘC, KHÔNG ĐƯỢC LÀM SAI.)
+          Nhiệm vụ của bạn là quét TOÀN BỘ file đính kèm (đặc biệt chú ý phần cuối file hoặc các bảng đáp án) để tìm ĐÁP ÁN ĐÚNG và LỜI GIẢI CHI TIẾT cho TỪNG câu hỏi.
+          
+          Hãy trả về một mảng JSON. Mỗi phần tử trong mảng có cấu trúc:
+          - id: chuỗi (BẮT BUỘC phải khớp chính xác với id của câu hỏi trong danh sách trên, ví dụ: 'q1', 'q2')
+          - answer: chuỗi (Nội dung đáp án. BẮT BUỘC PHẢI TÌM VÀ ĐIỀN.
+            + Nếu type = 'multiple_choice': 'A', 'B', 'C', hoặc 'D'.
+            + Nếu type = 'true_false': chuỗi JSON mảng 4 boolean, ví dụ '[true, false, true, false]'.
+            + Nếu type = 'short_answer': chuỗi chứa số đáp án, ví dụ '12.5')
+          - explanation: chuỗi (Bạn PHẢI tìm và trích xuất TOÀN BỘ phần lời giải chi tiết cho câu hỏi này. Sử dụng LaTeX cho công thức toán học bọc trong dấu $ $. NẾU KHÔNG CÓ LỜI GIẢI CHI TIẾT, hãy ghi lại đáp án đúng vào đây, ví dụ: "Đáp án đúng là A.")
         `;
 
         try {
@@ -136,12 +134,11 @@ export default function ExamBuilder() {
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    part: { type: Type.INTEGER },
-                    questionNumber: { type: Type.INTEGER },
+                    id: { type: Type.STRING },
                     answer: { type: Type.STRING },
                     explanation: { type: Type.STRING }
                   },
-                  required: ["part", "questionNumber", "answer"]
+                  required: ["id", "answer"]
                 }
               }
             }
@@ -149,38 +146,22 @@ export default function ExamBuilder() {
 
           const parsedAnswers = JSON.parse(response.text || '[]');
           
-          // Match answers with current questions
-          const newQs = [...questions];
-          let currentPart = 1;
-          let currentQuestionInPart = 1;
-
-          for (let i = 0; i < newQs.length; i++) {
-            const q = newQs[i];
-            
-            // Determine part based on question type
-            let qPart = 1;
-            if (q.type === 'multiple_choice') qPart = 1;
-            else if (q.type === 'true_false') qPart = 2;
-            else if (q.type === 'short_answer') qPart = 3;
-
-            // If part changed, reset question number
-            if (qPart !== currentPart) {
-              currentPart = qPart;
-              currentQuestionInPart = 1;
-            }
-
-            // Find matching answer
-            const matchingAnswer = parsedAnswers.find((a: any) => a.part === qPart && a.questionNumber === currentQuestionInPart);
-            
+          // Match answers with current questions by ID
+          const newQs = questions.map(q => {
+            const matchingAnswer = parsedAnswers.find((a: any) => a.id === q.id);
             if (matchingAnswer) {
-              newQs[i].correctAnswer = matchingAnswer.answer;
-              if (matchingAnswer.explanation) {
-                newQs[i].explanation = matchingAnswer.explanation;
+              let finalExplanation = matchingAnswer.explanation || q.explanation;
+              if (!finalExplanation || finalExplanation.trim() === '') {
+                finalExplanation = `Đáp án đúng là: ${matchingAnswer.answer}`;
               }
+              return {
+                ...q,
+                correctAnswer: matchingAnswer.answer,
+                explanation: finalExplanation
+              };
             }
-
-            currentQuestionInPart++;
-          }
+            return q;
+          });
 
           setQuestions(newQs);
           alert('Đã cập nhật đáp án thành công!');
@@ -212,10 +193,33 @@ export default function ExamBuilder() {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         
         const prompt = `
-          Bạn là một chuyên gia phân tích đề thi THPT Quốc gia.
-          Hãy trích xuất các câu hỏi từ file PDF đề thi này.
+          Bạn là một chuyên gia phân tích đề thi THPT Quốc gia. Nhiệm vụ của bạn là trích xuất TOÀN BỘ dữ liệu từ file PDF đề thi (bao gồm Câu hỏi, Đáp án, và Lời giải chi tiết) một cách CHÍNH XÁC TUYỆT ĐỐI.
+          Đặc biệt lưu ý: File PDF có thể chứa hình ảnh, công thức phức tạp. Hãy phân tích kỹ toàn bộ nội dung.
+
+          QUY TRÌNH BÓC TÁCH VÀ TÁCH BIỆT DỮ LIỆU (CỰC KỲ QUAN TRỌNG):
+          Mỗi câu hỏi trong đề thi thường có phần "Đề bài" và phần "Lời giải/Đáp án" (nằm ngay dưới câu hỏi hoặc ở cuối file). Bạn PHẢI tách biệt chúng rõ ràng:
           
-          QUY TẮC QUAN TRỌNG VỀ TOÁN HỌC VÀ HÌNH ẢNH:
+          1. TRƯỜNG \`content\` (NỘI DUNG CÂU HỎI):
+          - CHỈ chứa nội dung của đề bài.
+          - LỆNH CẤM: TUYỆT ĐỐI KHÔNG được chứa bất kỳ từ ngữ nào thuộc về phần giải thích (ví dụ: "Lời giải", "Giải", "Hướng dẫn giải", "Đáp án", "Chọn A", "Ta có...").
+          - DẤU HIỆU DỪNG: Khi đang đọc câu hỏi mà gặp các từ "Lời giải", "Giải", "HDG", bạn PHẢI DỪNG LẠI NGAY, không đưa phần tiếp theo vào \`content\`.
+
+          2. TRƯỜNG \`options\` (CÁC LỰA CHỌN):
+          - Trích xuất 4 đáp án A, B, C, D (nếu là trắc nghiệm nhiều lựa chọn) hoặc 4 ý a, b, c, d (nếu là đúng/sai).
+
+          3. TRƯỜNG \`explanation\` (LỜI GIẢI CHI TIẾT):
+          - Đưa TOÀN BỘ nội dung của phần "Lời giải", "Hướng dẫn giải" vào đây.
+          - Nếu đề thi có phần lời giải ở cuối file, hãy tìm và ghép đúng lời giải cho từng câu hỏi.
+          - Sử dụng LaTeX cho công thức toán học.
+
+          4. TRƯỜNG \`correctAnswer\` (ĐÁP ÁN ĐÚNG):
+          - ƯU TIÊN NHẬN DIỆN VÀ ĐIỀN ĐẦY ĐỦ.
+          - Đọc kỹ phần lời giải hoặc bảng đáp án để tìm đáp án đúng.
+          - Trắc nghiệm nhiều lựa chọn: Điền 'A', 'B', 'C', hoặc 'D'.
+          - Trắc nghiệm đúng/sai: Điền chuỗi JSON mảng 4 boolean, ví dụ '[true, false, true, false]'.
+          - Trả lời ngắn: Điền chuỗi chứa số đáp án, ví dụ '12.5'.
+
+          QUY TẮC VỀ TOÁN HỌC VÀ HÌNH ẢNH:
           1. MỌI công thức toán học PHẢI được bọc trong dấu $ (cho công thức trên cùng dòng) hoặc $$ (cho công thức đứng riêng một dòng). Không dùng \\( \\) hay \\[ \\].
           2. TUYỆT ĐỐI KHÔNG sử dụng các gói LaTeX vẽ hình như TikZ, tkz-tab, pstricks... vì hệ thống web không hỗ trợ render các gói này.
           3. ĐỐI VỚI BẢNG BIẾN THIÊN VÀ BẢNG XÉT DẤU: BẮT BUỘC dùng môi trường \\begin{array} ... \\end{array} cơ bản của LaTeX để vẽ. Dùng \\nearrow (mũi tên lên) và \\searrow (mũi tên xuống) để thể hiện sự biến thiên. KHÔNG dùng tkz-tab.
@@ -234,28 +238,19 @@ export default function ExamBuilder() {
           \\end{array}
           $$
           4. ĐỐI VỚI ĐỒ THỊ HÀM SỐ HOẶC HÌNH VẼ HÌNH HỌC: Không thể vẽ bằng array, hãy bỏ qua hình vẽ và KHÔNG chèn bất kỳ dòng chữ nào (như "[CẦN THÊM ẢNH ĐỒ THỊ/HÌNH VẼ]") vào nội dung. Giáo viên sẽ tự xem đề gốc và thêm ảnh sau.
-          
-          QUY TẮC QUAN TRỌNG VỀ LỜI GIẢI CHI TIẾT (EXPLANATION) VÀ TÁCH CÂU HỎI (CHỈ THỊ BẮT BUỘC VÀ CỰC KỲ KHẮT KHE):
-          1. TÁCH BIỆT HOÀN TOÀN (LỆNH CẤM): Bị CẤM TUYỆT ĐỐI việc để dính phần lời giải (từ các chữ "Lời giải", "Giải", "HDG", "Hướng dẫn giải", "Chọn A", "Chọn B", "Chọn C", "Chọn D" trở đi) vào bên trong nội dung câu hỏi (\`content\`). Trường \`content\` CHỈ ĐƯỢC CHỨA nội dung câu hỏi thuần túy.
-          2. CẮT VÀ CHUYỂN (BẮT BUỘC): BẮT BUỘC phải cắt TOÀN BỘ phần lời giải đó ra khỏi \`content\` và đưa RIÊNG vào trường Lời giải chi tiết (\`explanation\`).
-          3. TỰ ĐỘNG NHẬN DIỆN ĐÁP ÁN (BẮT BUỘC): Bạn PHẢI ĐỌC lời giải. Nếu trong phần lời giải có ghi rõ "Chọn A", "Đáp án B", "Vậy chọn C", v.v., bạn BẮT BUỘC tự động trích xuất chữ cái đó (A, B, C, hoặc D) và điền LUÔN vào phần Đáp án đúng (\`correctAnswer\`). KHÔNG ĐƯỢC CHỈ ĐỂ ĐÁP ÁN TRONG PHẦN LỜI GIẢI MÀ QUÊN ĐIỀN VÀO TRƯỜNG \`correctAnswer\`.
-          4. TRONG FILE PDF THƯỜNG CÓ SẴN LỜI GIẢI CHI TIẾT. Bạn BẮT BUỘC PHẢI TÌM VÀ TRÍCH XUẤT TOÀN BỘ NỘI DUNG LỜI GIẢI NÀY VÀO TRƯỜNG \`explanation\`.
-          5. Nếu lời giải nằm ngay dưới câu hỏi, hãy lấy nó. Nếu lời giải nằm ở một phần riêng ở cuối đề thi, bạn PHẢI đối chiếu và lấy đúng lời giải cho từng câu.
-          6. KIỂM TRA LẠI (QUAN TRỌNG): Trước khi trả về kết quả, hãy kiểm tra lại trường \`content\` của từng câu hỏi. Nếu thấy có chữ "Lời giải", "Giải", "Hướng dẫn giải" hoặc tương tự, bạn đã làm sai. Hãy sửa lại ngay lập tức bằng cách chuyển phần đó sang \`explanation\`.
-          7. KIỂM TRA LẠI ĐÁP ÁN: Đảm bảo rằng trường \`correctAnswer\` ĐÃ ĐƯỢC ĐIỀN nếu trong \`explanation\` có đề cập đến đáp án. Đừng để \`correctAnswer\` trống nếu bạn đã biết đáp án từ lời giải.
-          
-          Đề thi thường có 3 phần:
+
+          CẤU TRÚC ĐỀ THI THƯỜNG GẶP:
           1. Trắc nghiệm nhiều lựa chọn (thường 12 câu)
           2. Trắc nghiệm đúng/sai (thường 4 câu, mỗi câu 4 ý a, b, c, d)
           3. Trả lời ngắn (thường 6 câu)
-          
+
           Hãy trả về một mảng JSON các câu hỏi. Mỗi câu hỏi có cấu trúc:
           - id: chuỗi (ví dụ: 'q1', 'q2')
           - type: 'multiple_choice' | 'true_false' | 'short_answer'
-          - content: chuỗi (Nội dung câu hỏi. Sử dụng LaTeX cho công thức toán học, bọc trong dấu $ $)
+          - content: chuỗi (Nội dung câu hỏi thuần túy. KHÔNG CHỨA LỜI GIẢI. Sử dụng LaTeX cho công thức toán học, bọc trong dấu $ $)
           - options: mảng chuỗi (Đối với multiple_choice là 4 đáp án A, B, C, D. Đối với true_false là 4 phát biểu a, b, c, d. short_answer thì để mảng rỗng)
-          - correctAnswer: chuỗi (BẮT BUỘC ĐIỀN NẾU CÓ THỂ: Nếu đề có đáp án hoặc bạn tìm thấy đáp án trong lời giải, PHẢI điền vào đây. multiple_choice: 'A', 'B', 'C', 'D'. true_false: chuỗi JSON mảng 4 boolean ví dụ '[true, false, true, false]'. short_answer: đáp án dạng số)
-          - explanation: chuỗi (BẮT BUỘC: Bạn PHẢI tìm và trích xuất TOÀN BỘ phần lời giải chi tiết cho câu hỏi này. TUYỆT ĐỐI KHÔNG để dính lời giải vào trường content. Lời giải có thể nằm ngay dưới câu hỏi hoặc nằm ở phần cuối của đề thi. Hãy tìm kỹ toàn bộ file để ghép đúng lời giải vào câu hỏi tương ứng. Sử dụng LaTeX cho công thức toán học. Chỉ để trống nếu thực sự không có bất kỳ lời giải nào trong file. ĐÂY LÀ YÊU CẦU BẮT BUỘC, KHÔNG ĐƯỢC LÀM SAI.)
+          - correctAnswer: chuỗi (BẮT BUỘC ĐIỀN NẾU CÓ THỂ)
+          - explanation: chuỗi (BẮT BUỘC ĐIỀN NẾU CÓ LỜI GIẢI TRONG FILE)
         `;
 
         try {
@@ -517,9 +512,9 @@ export default function ExamBuilder() {
             <span className="bg-indigo-600 text-white p-2 rounded-lg mr-3 shadow-sm">
               <Upload className="w-5 h-5" />
             </span>
-            Nhập liệu tự động bằng AI
+            1. Phân tích Đề thi (Tự động trích xuất toàn bộ)
           </h2>
-          <p className="text-sm text-indigo-700/80 mb-6 font-medium">Tải lên file PDF đề thi. Hệ thống sẽ tự động nhận diện câu hỏi, công thức Toán học (LaTeX) và các lựa chọn. Nếu đề có hình ảnh, AI sẽ cố gắng tự động trích xuất và lưu trữ.</p>
+          <p className="text-sm text-indigo-700/80 mb-6 font-medium">Tải lên file PDF đề thi. Hệ thống sẽ tự động nhận diện câu hỏi, đáp án, lời giải chi tiết và công thức Toán học (LaTeX). Hỗ trợ tốt các file PDF chứa ảnh.</p>
           
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 bg-white p-4 rounded-xl shadow-sm border border-indigo-50">
             <input type="file" accept=".pdf" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer transition-colors" />
@@ -540,12 +535,12 @@ export default function ExamBuilder() {
             <span className="bg-emerald-600 text-white p-2 rounded-lg mr-3 shadow-sm">
               <Check className="w-5 h-5" />
             </span>
-            Nhận diện đáp án từ ảnh
+            2. Trích xuất Đáp án & Lời giải
           </h2>
-          <p className="text-sm text-emerald-700/80 mb-6 font-medium">Tải lên hình ảnh bảng đáp án (hỗ trợ định dạng bảng của Bộ GD&ĐT gồm 3 phần). Hệ thống sẽ tự động điền đáp án cho các câu hỏi hiện tại.</p>
+          <p className="text-sm text-emerald-700/80 mb-6 font-medium">Tải lên file PDF hoặc hình ảnh chứa đáp án và lời giải chi tiết. Hệ thống sẽ tự động tìm và điền đáp án, lời giải cho các câu hỏi đã nhận diện ở bước 1.</p>
           
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 bg-white p-4 rounded-xl shadow-sm border border-emerald-50">
-            <input type="file" accept="image/*" onChange={handleAnswerKeyFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer transition-colors" />
+            <input type="file" accept=".pdf,image/*" onChange={handleAnswerKeyFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer transition-colors" />
             <button
               onClick={parseAnswerKeyWithAI}
               disabled={!answerKeyFile || isParsingAnswerKey || questions.length === 0}

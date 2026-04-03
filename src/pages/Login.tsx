@@ -19,7 +19,11 @@ export default function Login() {
       setError('');
       await loginWithGoogle();
     } catch (err: any) {
-      setError(err.message || 'Lỗi đăng nhập Google');
+      if (err.code === 'auth/network-request-failed' || err.message?.includes('network-request-failed')) {
+        setError('Lỗi kết nối mạng hoặc trình duyệt chặn popup/cookie. Vui lòng thử mở ứng dụng trong tab mới (nhấn vào biểu tượng mở tab mới ở góc trên bên phải) hoặc tắt trình chặn quảng cáo.');
+      } else {
+        setError(err.message || 'Lỗi đăng nhập Google');
+      }
     }
   };
 
@@ -29,7 +33,11 @@ export default function Login() {
       setError('');
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      if (err.code === 'auth/network-request-failed' || err.message?.includes('network-request-failed')) {
+        setError('Lỗi kết nối mạng. Vui lòng thử mở ứng dụng trong tab mới (nhấn vào biểu tượng mở tab mới ở góc trên bên phải) hoặc tắt trình chặn quảng cáo.');
+      } else {
+        setError(err.message || 'Lỗi đăng nhập Học sinh');
+      }
     }
   };
 

@@ -189,17 +189,43 @@ export default function ExamResults() {
                       </button>
                     </div>
                     {sub.incorrectQuestions && sub.incorrectQuestions.length > 0 ? (
-                      <div className="text-sm text-rose-600 flex flex-col sm:items-end mt-3 bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100">
-                        <div className="flex items-center font-bold">
+                      <div className="text-sm text-rose-600 flex flex-col sm:items-end mt-3 bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100 w-full sm:w-auto">
+                        <div className="flex items-center font-bold mb-1">
                           <XCircle className="w-4 h-4 mr-1.5" />
                           {sub.incorrectQuestions.length} câu sai
                         </div>
-                        <span className="text-xs font-medium text-rose-500/80 mt-1">
-                          (Sai các câu: {sub.incorrectQuestions.map((qId: string) => {
+                        <div className="text-xs font-medium text-rose-600/90 mt-1 space-y-1.5 w-full text-left sm:text-right">
+                          {sub.incorrectQuestions.map((qId: string) => {
                             const qIndex = exam.questions.findIndex((q: any) => q.id === qId);
-                            return qIndex !== -1 ? (qIndex + 1) : qId;
-                          }).join(', ')})
-                        </span>
+                            const q = exam.questions[qIndex];
+                            if (!q) return null;
+                            
+                            let studentAns: any = '';
+                            try {
+                              const parsedAnswers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
+                              studentAns = parsedAnswers[qId];
+                            } catch (e) {}
+                            
+                            let displayStudentAns = String(studentAns || '(Trống)');
+                            let displayCorrectAns = String(q.correctAnswer || '(Trống)');
+                            
+                            if (q.type === 'true_false') {
+                              try {
+                                const sArr = Array.isArray(studentAns) ? studentAns : [];
+                                const cArr = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer || '[]') : (q.correctAnswer || []);
+                                displayStudentAns = sArr.map((v: any) => v === true ? 'Đ' : v === false ? 'S' : '-').join('');
+                                displayCorrectAns = cArr.map((v: any) => v === true ? 'Đ' : v === false ? 'S' : '-').join('');
+                                if (!displayStudentAns) displayStudentAns = '(Trống)';
+                              } catch(e) {}
+                            }
+                            
+                            return (
+                              <div key={qId} className="bg-white/60 px-2 py-1.5 rounded border border-rose-100/50 inline-block sm:block mr-2 sm:mr-0 mb-1 sm:mb-0">
+                                <span className="font-bold">Câu {qIndex !== -1 ? qIndex + 1 : '?'}:</span> Chọn <span className="line-through text-rose-400">{displayStudentAns}</span> <span className="text-emerald-600 font-bold ml-1">({displayCorrectAns})</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     ) : (
                       <div className="text-sm text-emerald-600 flex items-center sm:justify-end mt-3 bg-emerald-50/50 px-3 py-2 rounded-lg border border-emerald-100 font-bold">
