@@ -98,8 +98,8 @@ service cloud.firestore {
       // Students can create submissions for themselves
       allow create: if isStudent() && isValidSubmission(request.resource.data) && request.resource.data.studentId == request.auth.uid;
       
-      // Submissions are immutable
-      allow update: if false;
+      // Teachers can update submissions (for recalculating scores)
+      allow update: if isTeacher() && isValidSubmission(request.resource.data) && request.resource.data.studentId == resource.data.studentId && request.resource.data.examId == resource.data.examId;
       allow delete: if isTeacher();
     }
   }

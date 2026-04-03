@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3 } from 'lucide-react';
+import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3, Loader2, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
 export default function ExamResults() {
@@ -14,6 +14,7 @@ export default function ExamResults() {
   const [students, setStudents] = useState<any[]>([]);
   const [submissionToDelete, setSubmissionToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [regradingId, setRegradingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!examId) return;
@@ -64,6 +65,62 @@ export default function ExamResults() {
       handleFirestoreError(error, OperationType.DELETE, `submissions/${submissionToDelete}`);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRegrade = async (submission: any) => {
+    if (!exam) return;
+    setRegradingId(submission.id);
+    try {
+      const answers = typeof submission.answers === 'string' ? JSON.parse(submission.answers || '{}') : submission.answers;
+      let score = 0;
+      let incorrectQuestions: string[] = [];
+
+      exam.questions.forEach((q: any) => {
+        const studentAnswer = answers[q.id];
+        const correctAnswer = q.correctAnswer;
+
+        if (q.type === 'multiple_choice') {
+          if (studentAnswer === correctAnswer) {
+            score += 0.25;
+          } else {
+            incorrectQuestions.push(q.id);
+          }
+        } else if (q.type === 'true_false') {
+          try {
+            const correctArr = JSON.parse(correctAnswer || '[]');
+            const studentArr = studentAnswer || [];
+            let correctParts = 0;
+            for (let i = 0; i < 4; i++) {
+              if (studentArr[i] === correctArr[i]) correctParts++;
+            }
+            if (correctParts === 1) score += 0.1;
+            else if (correctParts === 2) score += 0.25;
+            else if (correctParts === 3) score += 0.5;
+            else if (correctParts === 4) score += 1.0;
+            
+            if (correctParts < 4) incorrectQuestions.push(q.id);
+          } catch (e) {
+            incorrectQuestions.push(q.id);
+          }
+        } else if (q.type === 'short_answer') {
+          if (studentAnswer && studentAnswer.trim() === correctAnswer?.trim()) {
+            score += 0.5;
+          } else {
+            incorrectQuestions.push(q.id);
+          }
+        }
+      });
+
+      await updateDoc(doc(db, 'submissions', submission.id), {
+        score,
+        incorrectQuestions
+      });
+      alert('Đã chấm lại thành công!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `submissions/${submission.id}`);
+    } finally {
+      setRegradingId(null);
     }
   };
 
@@ -180,6 +237,14 @@ export default function ExamResults() {
                       <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 mr-4">
                         <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{sub.score.toFixed(2)} <span className="text-base text-indigo-300 font-bold">/ 10</span></p>
                       </div>
+                      <button
+                        onClick={() => handleRegrade(sub)}
+                        disabled={regradingId === sub.id}
+                        className="text-indigo-400 hover:text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-50 transition-colors border border-transparent hover:border-indigo-100 mr-2 disabled:opacity-50"
+                        title="Chấm lại bài này"
+                      >
+                        {regradingId === sub.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                      </button>
                       <button
                         onClick={() => setSubmissionToDelete(sub.id)}
                         className="text-red-400 hover:text-red-600 p-2.5 rounded-xl hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"
