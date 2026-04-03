@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3, Loader2, RefreshCw, Eye } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
+import MathText from '../components/MathText';
 
 export default function ExamResults() {
   const { examId } = useParams<{ examId: string }>();
@@ -15,6 +16,7 @@ export default function ExamResults() {
   const [submissionToDelete, setSubmissionToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [regradingId, setRegradingId] = useState<string | null>(null);
+  const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!examId) return;
@@ -254,43 +256,18 @@ export default function ExamResults() {
                       </button>
                     </div>
                     {sub.incorrectQuestions && sub.incorrectQuestions.length > 0 ? (
-                      <div className="text-sm text-rose-600 flex flex-col sm:items-end mt-3 bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100 w-full sm:w-auto">
-                        <div className="flex items-center font-bold mb-1">
+                      <div className="text-sm text-rose-600 flex items-center justify-between sm:justify-end mt-3 bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100 w-full sm:w-auto">
+                        <div className="flex items-center font-bold mr-4">
                           <XCircle className="w-4 h-4 mr-1.5" />
                           {sub.incorrectQuestions.length} câu sai
                         </div>
-                        <div className="text-xs font-medium text-rose-600/90 mt-1 space-y-1.5 w-full text-left sm:text-right">
-                          {sub.incorrectQuestions.map((qId: string) => {
-                            const qIndex = exam.questions.findIndex((q: any) => q.id === qId);
-                            const q = exam.questions[qIndex];
-                            if (!q) return null;
-                            
-                            let studentAns: any = '';
-                            try {
-                              const parsedAnswers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
-                              studentAns = parsedAnswers[qId];
-                            } catch (e) {}
-                            
-                            let displayStudentAns = String(studentAns || '(Trống)');
-                            let displayCorrectAns = String(q.correctAnswer || '(Trống)');
-                            
-                            if (q.type === 'true_false') {
-                              try {
-                                const sArr = Array.isArray(studentAns) ? studentAns : [];
-                                const cArr = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer || '[]') : (q.correctAnswer || []);
-                                displayStudentAns = sArr.map((v: any) => v === true ? 'Đ' : v === false ? 'S' : '-').join('');
-                                displayCorrectAns = cArr.map((v: any) => v === true ? 'Đ' : v === false ? 'S' : '-').join('');
-                                if (!displayStudentAns) displayStudentAns = '(Trống)';
-                              } catch(e) {}
-                            }
-                            
-                            return (
-                              <div key={qId} className="bg-white/60 px-2 py-1.5 rounded border border-rose-100/50 inline-block sm:block mr-2 sm:mr-0 mb-1 sm:mb-0">
-                                <span className="font-bold">Câu {qIndex !== -1 ? qIndex + 1 : '?'}:</span> Chọn <span className="line-through text-rose-400">{displayStudentAns}</span> <span className="text-emerald-600 font-bold ml-1">({displayCorrectAns})</span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <button
+                          onClick={() => setViewingDetailsId(sub.id)}
+                          className="flex items-center text-xs font-bold bg-white border border-rose-200 text-rose-600 px-3 py-1.5 rounded-md hover:bg-rose-50 transition-colors shadow-sm"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          Xem chi tiết
+                        </button>
                       </div>
                     ) : (
                       <div className="text-sm text-emerald-600 flex items-center sm:justify-end mt-3 bg-emerald-50/50 px-3 py-2 rounded-lg border border-emerald-100 font-bold">
@@ -331,6 +308,115 @@ export default function ExamResults() {
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Đang xóa...' : 'Đồng ý xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
+      {viewingDetailsId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                <XCircle className="w-6 h-6 text-rose-500 mr-2" />
+                Chi tiết các câu trả lời sai
+              </h3>
+              <button 
+                onClick={() => setViewingDetailsId(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
+              {(() => {
+                const sub = submissions.find(s => s.id === viewingDetailsId);
+                if (!sub || !sub.incorrectQuestions || !exam || !exam.questions) return null;
+                
+                return (
+                  <div className="space-y-6">
+                    {sub.incorrectQuestions.map((qId: string) => {
+                      const qIndex = exam.questions.findIndex((q: any) => String(q.id) === String(qId));
+                      const q = exam.questions[qIndex];
+                      
+                      if (!q) {
+                        return (
+                          <div key={qId} className="bg-white p-5 rounded-xl border border-rose-100 shadow-sm">
+                            <div className="text-rose-500 font-medium">Không tìm thấy dữ liệu cho câu hỏi này (ID: {qId}). Có thể câu hỏi đã bị xóa hoặc thay đổi.</div>
+                          </div>
+                        );
+                      }
+                      
+                      let studentAns: any = '';
+                      try {
+                        const parsedAnswers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
+                        studentAns = parsedAnswers[qId];
+                      } catch (e) {}
+                      
+                      let displayStudentAns = String(studentAns || '(Trống)');
+                      let displayCorrectAns = String(q.correctAnswer || '(Trống)');
+                      
+                      if (q.type === 'true_false') {
+                        try {
+                          const sArr = Array.isArray(studentAns) ? studentAns : [];
+                          const cArr = typeof q.correctAnswer === 'string' ? JSON.parse(q.correctAnswer || '[]') : (q.correctAnswer || []);
+                          displayStudentAns = sArr.map((v: any) => v === true ? 'Đúng' : v === false ? 'Sai' : 'Trống').join(' | ');
+                          displayCorrectAns = cArr.map((v: any) => v === true ? 'Đúng' : v === false ? 'Sai' : 'Trống').join(' | ');
+                          if (!displayStudentAns) displayStudentAns = '(Trống)';
+                        } catch(e) {}
+                      }
+                      
+                      return (
+                        <div key={qId} className="bg-white p-5 rounded-xl border border-rose-100 shadow-sm">
+                          <div className="font-bold text-lg text-gray-800 mb-3 pb-2 border-b border-gray-100">
+                            Câu {qIndex !== -1 ? qIndex + 1 : '?'}
+                          </div>
+                          
+                          <div className="mb-4 text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <MathText text={q.content} />
+                            
+                            {Array.isArray(q.options) && q.options.length > 0 && (
+                              <div className="mt-4 space-y-2">
+                                {q.options.map((opt: string, i: number) => {
+                                  const letter = q.type === 'true_false' ? String.fromCharCode(97 + i) : String.fromCharCode(65 + i);
+                                  return (
+                                    <div key={i} className="flex items-start text-sm">
+                                      <span className="font-semibold mr-2">{letter}.</span>
+                                      <MathText text={opt} />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-rose-50 p-3 rounded-lg border border-rose-100">
+                              <div className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-1">Học sinh chọn</div>
+                              <div className="font-medium text-rose-700">{displayStudentAns}</div>
+                            </div>
+                            <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                              <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Đáp án đúng</div>
+                              <div className="font-medium text-emerald-700">{displayCorrectAns}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setViewingDetailsId(null)}
+                className="px-6 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                Đóng
               </button>
             </div>
           </div>
