@@ -40,7 +40,28 @@ export default function TeacherDashboard() {
 
     const qExams = query(collection(db, 'exams'), where('teacherId', '==', appUser.uid));
     const unsubExams = onSnapshot(qExams, (snapshot) => {
-      setExams(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const examsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Sort exams by number in title
+      examsList.sort((a: any, b: any) => {
+        const titleA = a.title || '';
+        const titleB = b.title || '';
+        
+        const matchA = titleA.match(/\d+/);
+        const matchB = titleB.match(/\d+/);
+        
+        if (matchA && matchB) {
+          const numA = parseInt(matchA[0], 10);
+          const numB = parseInt(matchB[0], 10);
+          if (numA !== numB) {
+            return numA - numB;
+          }
+        }
+        
+        return titleA.localeCompare(titleB);
+      });
+      
+      setExams(examsList);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'exams'));
 
     const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
@@ -340,27 +361,30 @@ export default function TeacherDashboard() {
                     <p className="text-lg font-medium">Chưa có đề thi nào.</p>
                     <p className="text-sm mt-1">Hãy tạo đề thi đầu tiên của bạn!</p>
                   </li>
-                ) : exams.map((exam) => (
+                ) : exams.map((exam, index) => (
                   <li key={exam.id} className="hover:bg-indigo-50/50 transition-colors duration-150">
                     <div className="px-6 py-5 flex justify-between items-center">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 truncate mb-1">{exam.title}</h3>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                          <span className="flex items-center bg-gray-100 px-2.5 py-1 rounded-md font-medium">
-                            <Clock className="w-4 h-4 mr-1.5 text-gray-500" /> {exam.duration} phút
-                          </span>
-                          <span className={`px-2.5 py-1 rounded-md font-medium ${exam.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {exam.status === 'published' ? 'Đã giao' : 'Bản nháp'}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm text-gray-600 flex items-center">
-                          <span className="font-medium mr-1">Lớp được giao:</span> {exam.assignedClasses?.join(', ') || 'Chưa giao'}
-                        </p>
-                        {(exam.startTime || exam.endTime) && (
-                          <p className="mt-1 text-sm text-gray-500">
-                            Thời gian mở: {exam.startTime ? new Date(exam.startTime).toLocaleString('vi-VN') : 'Không giới hạn'} - {exam.endTime ? new Date(exam.endTime).toLocaleString('vi-VN') : 'Không giới hạn'}
+                      <div className="flex items-start">
+                        <span className="text-xl font-black text-indigo-200 w-8 flex-shrink-0 mt-0.5">{index + 1}.</span>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 truncate mb-1">{exam.title}</h3>
+                          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                            <span className="flex items-center bg-gray-100 px-2.5 py-1 rounded-md font-medium">
+                              <Clock className="w-4 h-4 mr-1.5 text-gray-500" /> {exam.duration} phút
+                            </span>
+                            <span className={`px-2.5 py-1 rounded-md font-medium ${exam.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {exam.status === 'published' ? 'Đã giao' : 'Bản nháp'}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-600 flex items-center">
+                            <span className="font-medium mr-1">Lớp được giao:</span> {exam.assignedClasses?.join(', ') || 'Chưa giao'}
                           </p>
-                        )}
+                          {(exam.startTime || exam.endTime) && (
+                            <p className="mt-1 text-sm text-gray-500">
+                              Thời gian mở: {exam.startTime ? new Date(exam.startTime).toLocaleString('vi-VN') : 'Không giới hạn'} - {exam.endTime ? new Date(exam.endTime).toLocaleString('vi-VN') : 'Không giới hạn'}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center space-x-3">
                         {exam.status === 'published' && (
