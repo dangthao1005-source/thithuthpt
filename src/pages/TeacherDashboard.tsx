@@ -3,7 +3,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateEmail, updatePassword, deleteUser } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Link } from 'react-router-dom';
 import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, Phone } from 'lucide-react';
@@ -29,7 +29,9 @@ export default function TeacherDashboard() {
   
   const [isImporting, setIsImporting] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
-  const [editStudentData, setEditStudentData] = useState({ name: '', className: '', password: '' });
+  const [editStudentData, setEditStudentData] = useState({ name: '', className: '', email: '', password: '' });
+  const [updateStudentError, setUpdateStudentError] = useState('');
+  const [isUpdatingStudent, setIsUpdatingStudent] = useState(false);
   const [editingPhoneStudent, setEditingPhoneStudent] = useState<any>(null);
   const [editPhoneData, setEditPhoneData] = useState({ phone: '' });
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
@@ -187,6 +189,9 @@ export default function TeacherDashboard() {
         let emailInUseCount = 0;
         let invalidEmailCount = 0;
         let weakPasswordCount = 0;
+        let missingDataCount = 0;
+        let wrongPasswordCount = 0;
+        let otherErrorMessages: string[] = [];
 
         for (const row of json) {
           const name = row['FullName'] || row['Họ và tên'];
@@ -227,14 +232,19 @@ export default function TeacherDashboard() {
                     name: String(name).trim(),
                     className: String(className).trim(),
                     password: String(password),
+                    phone: String(phone).trim(),
                     role: 'student',
                     createdAt: new Date().toISOString()
                   });
                   await signOut(secondaryAuth);
                   successCount++;
-                } catch (signInErr) {
+                } catch (signInErr: any) {
                   console.error("Lỗi khôi phục tài khoản cho", email, signInErr);
-                  emailInUseCount++;
+                  if (signInErr.code === 'auth/wrong-password' || signInErr.code === 'auth/invalid-credential') {
+                    wrongPasswordCount++;
+                  } else {
+                    emailInUseCount++;
+                  }
                   errorCount++;
                 }
               } else {
@@ -245,11 +255,14 @@ export default function TeacherDashboard() {
                   invalidEmailCount++;
                 } else if (err.code === 'auth/weak-password') {
                   weakPasswordCount++;
+                } else {
+                  otherErrorMessages.push(`${email}: ${err.message}`);
                 }
                 errorCount++;
               }
             }
           } else {
+            missingDataCount++;
             errorCount++;
           }
         }
@@ -262,10 +275,14 @@ export default function TeacherDashboard() {
           if (errorCount > 0) {
             msg += `Thất bại: ${errorCount} dòng.\nChi tiết lỗi:\n`;
             if (emailInUseCount > 0) msg += `- ${emailInUseCount} email đã tồn tại.\n`;
+            if (wrongPasswordCount > 0) msg += `- ${wrongPasswordCount} email đã tồn tại nhưng sai mật khẩu (không thể cập nhật).\n`;
             if (invalidEmailCount > 0) msg += `- ${invalidEmailCount} email không hợp lệ (sai định dạng).\n`;
             if (weakPasswordCount > 0) msg += `- ${weakPasswordCount} mật khẩu quá yếu (dưới 6 ký tự).\n`;
-            const otherErrors = errorCount - emailInUseCount - invalidEmailCount - weakPasswordCount;
-            if (otherErrors > 0) msg += `- ${otherErrors} dòng thiếu dữ liệu (tên, lớp, email hoặc mật khẩu).\n`;
+            if (missingDataCount > 0) msg += `- ${missingDataCount} dòng thiếu dữ liệu (tên, lớp, email hoặc mật khẩu).\n`;
+            if (otherErrorMessages.length > 0) {
+              msg += `- Lỗi khác:\n  + ${otherErrorMessages.slice(0, 3).join('\n  + ')}`;
+              if (otherErrorMessages.length > 3) msg += `\n  + ... và ${otherErrorMessages.length - 3} lỗi khác.`;
+            }
           }
           alert(msg);
         }
@@ -286,15 +303,45 @@ export default function TeacherDashboard() {
   const handleUpdateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
+    
+    setIsUpdatingStudent(true);
+    setUpdateStudentError('');
+    
     try {
+      const emailChanged = editStudentData.email !== editingStudent.email;
+      const passwordChanged = editStudentData.password !== editingStudent.password;
+
+      if (emailChanged || passwordChanged) {
+        try {
+          const userCredential = await signInWithEmailAndPassword(secondaryAuth, editingStudent.email, editingStudent.password);
+          
+          if (emailChanged) {
+            await updateEmail(userCredential.user, editStudentData.email);
+          }
+          if (passwordChanged) {
+            await updatePassword(userCredential.user, editStudentData.password);
+          }
+          
+          await signOut(secondaryAuth);
+        } catch (authError: any) {
+          console.error("Auth update error:", authError);
+          setUpdateStudentError("Không thể cập nhật Email/Mật khẩu trên hệ thống xác thực. Có thể mật khẩu cũ lưu trong hệ thống không khớp với mật khẩu thực tế. Lỗi: " + authError.message);
+          setIsUpdatingStudent(false);
+          return;
+        }
+      }
+
       await updateDoc(doc(db, 'users', editingStudent.id), {
         name: editStudentData.name,
         className: editStudentData.className,
+        email: editStudentData.email,
         password: editStudentData.password
       });
       setEditingStudent(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${editingStudent.id}`);
+    } finally {
+      setIsUpdatingStudent(false);
     }
   };
 
@@ -311,13 +358,34 @@ export default function TeacherDashboard() {
     }
   };
 
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+  const [deleteStudentError, setDeleteStudentError] = useState('');
+
   const handleDeleteStudent = async () => {
     if (!studentToDelete) return;
+    setIsDeletingStudent(true);
+    setDeleteStudentError('');
     try {
+      const student = students.find(s => s.id === studentToDelete);
+      if (student) {
+        try {
+          const userCredential = await signInWithEmailAndPassword(secondaryAuth, student.email, student.password);
+          await deleteUser(userCredential.user);
+          await signOut(secondaryAuth);
+        } catch (authError: any) {
+          console.error("Auth delete error:", authError);
+          setDeleteStudentError("Không thể xóa tài khoản xác thực (có thể do sai mật khẩu cũ). Vui lòng đổi lại mật khẩu cho đúng rồi mới xóa. Lỗi: " + authError.message);
+          setIsDeletingStudent(false);
+          return;
+        }
+      }
+
       await deleteDoc(doc(db, 'users', studentToDelete));
       setStudentToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${studentToDelete}`);
+    } finally {
+      setIsDeletingStudent(false);
     }
   };
 
@@ -589,7 +657,8 @@ export default function TeacherDashboard() {
                               <button 
                                 onClick={() => {
                                   setEditingStudent(student);
-                                  setEditStudentData({ name: student.name, className: student.className || '', password: student.password || '' });
+                                  setEditStudentData({ name: student.name, className: student.className || '', email: student.email || '', password: student.password || '' });
+                                  setUpdateStudentError('');
                                 }}
                                 className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                 title="Chỉnh sửa"
@@ -708,6 +777,11 @@ export default function TeacherDashboard() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {updateStudentError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md">
+                {updateStudentError}
+              </div>
+            )}
             <form onSubmit={handleUpdateStudent} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Họ và tên</label>
@@ -718,16 +792,20 @@ export default function TeacherDashboard() {
                 <input type="text" required value={editStudentData.className} onChange={e => setEditStudentData({...editStudentData, className: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Mật khẩu (Ghi chú)</label>
-                <input type="text" value={editStudentData.password} onChange={e => setEditStudentData({...editStudentData, password: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-                <p className="mt-1 text-xs text-gray-500">Lưu ý: Mật khẩu ở đây chỉ để ghi nhớ, không làm thay đổi mật khẩu đăng nhập thực tế của học sinh.</p>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" required value={editStudentData.email} onChange={e => setEditStudentData({...editStudentData, email: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                <input type="text" required value={editStudentData.password} onChange={e => setEditStudentData({...editStudentData, password: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                <p className="mt-1 text-xs text-gray-500">Lưu ý: Thay đổi email hoặc mật khẩu ở đây sẽ cập nhật trực tiếp tài khoản đăng nhập của học sinh.</p>
               </div>
               <div className="pt-4 flex justify-end space-x-3">
-                <button type="button" onClick={() => setEditingStudent(null)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <button type="button" onClick={() => setEditingStudent(null)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" disabled={isUpdatingStudent}>
                   Hủy
                 </button>
-                <button type="submit" className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-                  Lưu thay đổi
+                <button type="submit" className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 flex items-center" disabled={isUpdatingStudent}>
+                  {isUpdatingStudent ? 'Đang lưu...' : 'Lưu thay đổi'}
                 </button>
               </div>
             </form>
@@ -744,14 +822,22 @@ export default function TeacherDashboard() {
               <h3 className="text-lg font-medium text-gray-900">Xác nhận xóa học sinh</h3>
             </div>
             <p className="text-sm text-gray-500 mb-6">
-              Bạn có chắc chắn muốn xóa học sinh này không? (Lưu ý: Chỉ xóa hồ sơ trên hệ thống, tài khoản đăng nhập Firebase vẫn tồn tại).
+              Bạn có chắc chắn muốn xóa học sinh này không? Hành động này không thể hoàn tác và sẽ xóa cả tài khoản đăng nhập của học sinh.
             </p>
+            {deleteStudentError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md">
+                {deleteStudentError}
+              </div>
+            )}
             <div className="flex justify-end space-x-3">
-              <button onClick={() => setStudentToDelete(null)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+              <button onClick={() => {
+                setStudentToDelete(null);
+                setDeleteStudentError('');
+              }} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" disabled={isDeletingStudent}>
                 Hủy
               </button>
-              <button onClick={handleDeleteStudent} className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700">
-                Xóa học sinh
+              <button onClick={handleDeleteStudent} className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 flex items-center" disabled={isDeletingStudent}>
+                {isDeletingStudent ? 'Đang xóa...' : 'Xóa học sinh'}
               </button>
             </div>
           </div>
