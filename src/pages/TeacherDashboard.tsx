@@ -67,11 +67,29 @@ export default function TeacherDashboard() {
     const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubStudents = onSnapshot(qStudents, (snapshot) => {
       const studentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Sort students by class name
+      // Sort students by class name, then by first name (tên)
       studentsList.sort((a: any, b: any) => {
         const classA = a.className || '';
         const classB = b.className || '';
-        return classA.localeCompare(classB);
+        const classCompare = classA.localeCompare(classB, 'vi');
+        
+        if (classCompare !== 0) return classCompare;
+        
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        
+        const getFirstName = (fullName: string) => {
+          const parts = fullName.trim().split(' ');
+          return parts[parts.length - 1] || '';
+        };
+        
+        const firstNameA = getFirstName(nameA);
+        const firstNameB = getFirstName(nameB);
+        
+        const nameCompare = firstNameA.localeCompare(firstNameB, 'vi');
+        if (nameCompare !== 0) return nameCompare;
+        
+        return nameA.localeCompare(nameB, 'vi');
       });
       setStudents(studentsList);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
