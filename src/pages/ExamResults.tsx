@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -18,6 +18,28 @@ export default function ExamResults() {
   const [regradingId, setRegradingId] = useState<string | null>(null);
   const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
 
+  const uniqueSubmissions = useMemo(() => {
+    const map = new Map();
+    console.log('Calculating unique submissions from:', submissions);
+    submissions.forEach(sub => {
+      // Use studentId as key. If a student submits multiple times, we only want the latest.
+      // Is it possible studentId is not unique because of some data issue?
+      if (!map.has(sub.studentId)) {
+        map.set(sub.studentId, sub);
+      } else {
+        const existing = map.get(sub.studentId);
+        const subDate = new Date(sub.submittedAt).getTime();
+        const existingDate = new Date(existing.submittedAt).getTime();
+        if (subDate > existingDate) {
+          map.set(sub.studentId, sub);
+        }
+      }
+    });
+    const result = Array.from(map.values()).sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+    console.log('Unique submissions result:', result);
+    return result;
+  }, [submissions]);
+
   useEffect(() => {
     if (!examId) return;
 
@@ -36,12 +58,16 @@ export default function ExamResults() {
 
     const qSubmissions = query(collection(db, 'submissions'), where('examId', '==', examId));
     const unsubSubmissions = onSnapshot(qSubmissions, (snapshot) => {
-      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const subs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('Submissions loaded:', subs);
+      setSubmissions(subs);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'submissions'));
 
     const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
     const unsubStudents = onSnapshot(qStudents, (snapshot) => {
-      setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const studs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('Students loaded:', studs);
+      setStudents(studs);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     return () => {
@@ -132,7 +158,7 @@ export default function ExamResults() {
       bins.push({ name: (i * 0.5).toFixed(1), count: 0 });
     }
     
-    submissions.forEach(sub => {
+    uniqueSubmissions.forEach(sub => {
       // Round to nearest 0.5
       const roundedScore = Math.round(sub.score * 2) / 2;
       const binIndex = Math.max(0, Math.min(20, roundedScore * 2));
@@ -154,12 +180,12 @@ export default function ExamResults() {
             <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Kết quả: {exam.title}</h1>
             <p className="text-sm font-medium text-gray-500 mt-1 flex items-center">
               <Users className="w-4 h-4 mr-1.5" />
-              Số bài nộp: <span className="ml-1 text-indigo-600 font-bold">{submissions.length}</span>
+              Số bài nộp: <span className="ml-1 text-indigo-600 font-bold">{uniqueSubmissions.length}</span>
             </p>
           </div>
         </div>
 
-        {submissions.length > 0 && (
+        {uniqueSubmissions.length > 0 && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
             <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
               <span className="bg-indigo-100 text-indigo-600 p-2 rounded-lg mr-3">
@@ -213,14 +239,14 @@ export default function ExamResults() {
 
         <div className="bg-white shadow-lg rounded-2xl border border-gray-100 overflow-hidden">
           <ul className="divide-y divide-gray-100">
-            {submissions.length === 0 ? (
+            {uniqueSubmissions.length === 0 ? (
               <li className="px-8 py-12 text-center text-gray-500 font-medium flex flex-col items-center justify-center">
                 <div className="bg-gray-50 p-4 rounded-full mb-3">
                   <Users className="w-8 h-8 text-gray-400" />
                 </div>
                 Chưa có học sinh nào nộp bài.
               </li>
-            ) : submissions.map((sub) => (
+            ) : uniqueSubmissions.map((sub) => (
               <li key={sub.id} className="px-6 py-6 hover:bg-gray-50/50 transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center mb-4 sm:mb-0">
@@ -333,7 +359,7 @@ export default function ExamResults() {
             
             <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
               {(() => {
-                const sub = submissions.find(s => s.id === viewingDetailsId);
+                const sub = uniqueSubmissions.find(s => s.id === viewingDetailsId);
                 if (!sub || !sub.incorrectQuestions || !exam || !exam.questions) return null;
                 
                 return (

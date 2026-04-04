@@ -39,6 +39,7 @@ service cloud.firestore {
              data.role in ['teacher', 'student'] &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              (!('className' in data) || (data.className is string && data.className.size() < 50)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 20)) &&
              data.createdAt is string;
     }
 
