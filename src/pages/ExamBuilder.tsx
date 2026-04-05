@@ -167,7 +167,12 @@ export default function ExamBuilder() {
           alert('Đã cập nhật đáp án thành công!');
         } catch (err: any) {
           console.error("AI Parsing Answer Key Error:", err);
-          setAnswerKeyError("Lỗi khi nhận diện đáp án: " + err.message);
+          const errMsg = err.message || JSON.stringify(err);
+          if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+            setAnswerKeyError("Hệ thống AI đã hết lượt sử dụng (Quota Exceeded). Vui lòng thử lại vào ngày mai.");
+          } else {
+            setAnswerKeyError("Lỗi khi nhận diện đáp án: " + err.message);
+          }
         } finally {
           setIsParsingAnswerKey(false);
         }
@@ -308,7 +313,12 @@ export default function ExamBuilder() {
           setQuestions(processedQuestions);
         } catch (err: any) {
           console.error("AI Parsing Error:", err);
-          setError("Lỗi khi phân tích đề thi: " + err.message);
+          const errMsg = err.message || JSON.stringify(err);
+          if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+            setError("Hệ thống AI đã hết lượt sử dụng (Quota Exceeded). Vui lòng thử lại vào ngày mai.");
+          } else {
+            setError("Lỗi khi phân tích đề thi: " + err.message);
+          }
         } finally {
           setIsParsing(false);
         }

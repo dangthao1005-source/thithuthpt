@@ -21,7 +21,28 @@ export default function StudentDashboard() {
     );
     
     const unsubExams = onSnapshot(qExams, (snapshot) => {
-      setExams(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const examsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Sort exams by number in title
+      examsList.sort((a: any, b: any) => {
+        const titleA = a.title || '';
+        const titleB = b.title || '';
+        
+        const matchA = titleA.match(/\d+/);
+        const matchB = titleB.match(/\d+/);
+        
+        if (matchA && matchB) {
+          const numA = parseInt(matchA[0], 10);
+          const numB = parseInt(matchB[0], 10);
+          if (numA !== numB) {
+            return numA - numB;
+          }
+        }
+        
+        return titleA.localeCompare(titleB);
+      });
+      
+      setExams(examsList);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'exams'));
 
     // Fetch student's submissions
