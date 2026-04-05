@@ -626,11 +626,14 @@ export default function TeacherDashboard() {
                         
                         const totalAssignedExams = assignedExamsList.length;
                         
-                        const openedExams = assignedExamsList.filter(exam => 
-                          !exam.startTime || new Date(exam.startTime) <= now
+                        const completedExams = assignedExamsList.filter(exam => 
+                          submissions.some(sub => sub.examId === exam.id && sub.studentId === student.uid)
                         ).length;
                         
-                        const completedExams = submissions.filter(sub => sub.studentId === student.uid).length;
+                        const openedExams = assignedExamsList.filter(exam => 
+                          (!exam.startTime || new Date(exam.startTime) <= now) ||
+                          submissions.some(sub => sub.examId === exam.id && sub.studentId === student.uid)
+                        ).length;
                         
                         return (
                         <tr key={student.id} className="hover:bg-gray-50 transition-colors">
