@@ -1,27 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-import { LogOut, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
+import { LogOut, PlayCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 
 export default function StudentDashboard() {
   const { appUser, logout } = useAuth();
   const [exams, setExams] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!appUser?.uid || !appUser?.className) return;
-
-    // Fetch published exams assigned to student's class
-    const qExams = query(
-      collection(db, 'exams'),
-      where('status', '==', 'published'),
-      where('assignedClasses', 'array-contains', appUser.className)
-    );
-    
-    const unsubExams = onSnapshot(qExams, (snapshot) => {
-      const examsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setIsRefreshing(true);
+    try {
+      // Fetch published exams assigned to student's class
+      const qExams = query(
+        collection(db, 'exams'),
+        where('status', '==', 'published'),
+        where('assignedClasses', 'array-contains', appUser.className)
+      );
+      
+      const examSnap = await getDocs(qExams);
+      const examsList = examSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       // Sort exams by number in title
       examsList.sort((a: any, b: any) => {
@@ -43,22 +45,24 @@ export default function StudentDashboard() {
       });
       
       setExams(examsList);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'exams'));
 
-    // Fetch student's submissions
-    const qSubmissions = query(
-      collection(db, 'submissions'),
-      where('studentId', '==', appUser.uid)
-    );
-    
-    const unsubSubmissions = onSnapshot(qSubmissions, (snapshot) => {
-      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'submissions'));
+      // Fetch student's submissions
+      const qSubmissions = query(
+        collection(db, 'submissions'),
+        where('studentId', '==', appUser.uid)
+      );
+      
+      const subSnap = await getDocs(qSubmissions);
+      setSubmissions(subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'student_data');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    return () => {
-      unsubExams();
-      unsubSubmissions();
-    };
+  useEffect(() => {
+    fetchData();
   }, [appUser?.uid, appUser?.className]);
 
   const getSubmission = (examId: string) => {
@@ -74,6 +78,9 @@ export default function StudentDashboard() {
               <h1 className="text-xl font-bold text-white tracking-wide">Học sinh: {appUser?.name} <span className="font-normal opacity-80">({appUser?.className})</span></h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button onClick={fetchData} disabled={isRefreshing} className="text-blue-100 hover:text-white flex items-center transition-colors font-medium mr-2">
+                <RefreshCw className={`w-5 h-5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Làm mới
+              </button>
               <button onClick={logout} className="text-blue-100 hover:text-white flex items-center transition-colors font-medium">
                 <LogOut className="w-5 h-5 mr-1" /> Đăng xuất
               </button>

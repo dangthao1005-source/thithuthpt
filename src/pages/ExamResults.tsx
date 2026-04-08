@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3, Loader2, RefreshCw, Eye } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 import MathText from '../components/MathText';
@@ -17,6 +17,7 @@ export default function ExamResults() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [regradingId, setRegradingId] = useState<string | null>(null);
   const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const uniqueSubmissions = useMemo(() => {
     const map = new Map();
@@ -40,40 +41,34 @@ export default function ExamResults() {
     return result;
   }, [submissions]);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!examId) return;
-
-    const fetchExam = async () => {
-      try {
-        const docRef = doc(db, 'exams', examId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setExam({ id: docSnap.id, ...docSnap.data() });
-        }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `exams/${examId}`);
+    setIsRefreshing(true);
+    try {
+      const docRef = doc(db, 'exams', examId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setExam({ id: docSnap.id, ...docSnap.data() });
       }
-    };
-    fetchExam();
 
-    const qSubmissions = query(collection(db, 'submissions'), where('examId', '==', examId));
-    const unsubSubmissions = onSnapshot(qSubmissions, (snapshot) => {
-      const subs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('Submissions loaded:', subs);
+      const qSubmissions = query(collection(db, 'submissions'), where('examId', '==', examId));
+      const subSnap = await getDocs(qSubmissions);
+      const subs = subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setSubmissions(subs);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'submissions'));
 
-    const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
-    const unsubStudents = onSnapshot(qStudents, (snapshot) => {
-      const studs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('Students loaded:', studs);
+      const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
+      const studentSnap = await getDocs(qStudents);
+      const studs = studentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setStudents(studs);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'exam_results_data');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    return () => {
-      unsubSubmissions();
-      unsubStudents();
-    };
+  useEffect(() => {
+    fetchData();
   }, [examId]);
 
   if (!exam) return <div className="flex h-screen items-center justify-center">Đang tải...</div>;
@@ -172,17 +167,27 @@ export default function ExamResults() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50/30 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <Link to="/teacher" className="text-gray-400 hover:text-indigo-600 mr-6 transition-colors p-2 hover:bg-indigo-50 rounded-full">
-            <ArrowLeft className="w-6 h-6" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Kết quả: {exam.title}</h1>
-            <p className="text-sm font-medium text-gray-500 mt-1 flex items-center">
-              <Users className="w-4 h-4 mr-1.5" />
-              Số bài nộp: <span className="ml-1 text-indigo-600 font-bold">{uniqueSubmissions.length}</span>
-            </p>
+        <div className="mb-8 flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center">
+            <Link to="/teacher" className="text-gray-400 hover:text-indigo-600 mr-6 transition-colors p-2 hover:bg-indigo-50 rounded-full">
+              <ArrowLeft className="w-6 h-6" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Kết quả: {exam.title}</h1>
+              <p className="text-sm font-medium text-gray-500 mt-1 flex items-center">
+                <Users className="w-4 h-4 mr-1.5" />
+                Số bài nộp: <span className="ml-1 text-indigo-600 font-bold">{uniqueSubmissions.length}</span>
+              </p>
+            </div>
           </div>
+          <button
+            onClick={fetchData}
+            disabled={isRefreshing}
+            className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
+          >
+            <RefreshCw className={`w-5 h-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Làm mới
+          </button>
         </div>
 
         {uniqueSubmissions.length > 0 && (

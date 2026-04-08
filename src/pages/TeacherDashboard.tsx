@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateEmail, updatePassword, deleteUser } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Link } from 'react-router-dom';
-import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, Phone } from 'lucide-react';
+import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, Phone, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Secondary app for creating users without logging out the main user
@@ -39,13 +39,15 @@ export default function TeacherDashboard() {
   const [examToDelete, setExamToDelete] = useState<string | null>(null);
   const [examToExtend, setExamToExtend] = useState<any>(null);
   const [newEndTime, setNewEndTime] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!appUser?.uid) return;
-
-    const qExams = query(collection(db, 'exams'), where('teacherId', '==', appUser.uid));
-    const unsubExams = onSnapshot(qExams, (snapshot) => {
-      const examsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setIsRefreshing(true);
+    try {
+      const qExams = query(collection(db, 'exams'), where('teacherId', '==', appUser.uid));
+      const examSnap = await getDocs(qExams);
+      const examsList = examSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       // Sort exams by number in title
       examsList.sort((a: any, b: any) => {
@@ -67,11 +69,10 @@ export default function TeacherDashboard() {
       });
       
       setExams(examsList);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'exams'));
 
-    const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
-    const unsubStudents = onSnapshot(qStudents, (snapshot) => {
-      const studentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
+      const studentSnap = await getDocs(qStudents);
+      const studentsList = studentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       // Sort students by class name, then by first name (tên)
       studentsList.sort((a: any, b: any) => {
         const classA = a.className || '';
@@ -97,18 +98,19 @@ export default function TeacherDashboard() {
         return nameA.localeCompare(nameB, 'vi');
       });
       setStudents(studentsList);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
-    const qSubmissions = query(collection(db, 'submissions'));
-    const unsubSubmissions = onSnapshot(qSubmissions, (snapshot) => {
-      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'submissions'));
+      const qSubmissions = query(collection(db, 'submissions'));
+      const subSnap = await getDocs(qSubmissions);
+      setSubmissions(subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'teacher_data');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    return () => {
-      unsubExams();
-      unsubStudents();
-      unsubSubmissions();
-    };
+  useEffect(() => {
+    fetchData();
   }, [appUser?.uid]);
 
   const handleCreateStudent = async (e: React.FormEvent) => {
@@ -431,6 +433,9 @@ export default function TeacherDashboard() {
               <h1 className="text-xl font-bold text-white tracking-wide">Giáo viên: {appUser?.name}</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button onClick={fetchData} disabled={isRefreshing} className="text-indigo-100 hover:text-white flex items-center transition-colors font-medium mr-2">
+                <RefreshCw className={`w-5 h-5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Làm mới
+              </button>
               <button onClick={logout} className="text-indigo-100 hover:text-white flex items-center transition-colors font-medium">
                 <LogOut className="w-5 h-5 mr-1" /> Đăng xuất
               </button>
