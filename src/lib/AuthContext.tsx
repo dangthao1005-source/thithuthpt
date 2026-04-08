@@ -11,6 +11,7 @@ export interface AppUser {
   role: UserRole;
   name: string;
   className?: string;
+  facebook?: string;
   createdAt: string;
 }
 

@@ -1,15 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-import { LogOut, PlayCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { LogOut, PlayCircle, CheckCircle, XCircle, RefreshCw, MessageCircle, X } from 'lucide-react';
 
 export default function StudentDashboard() {
   const { appUser, logout } = useAuth();
   const [exams, setExams] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showFbModal, setShowFbModal] = useState(false);
+  const [fbLink, setFbLink] = useState(appUser?.facebook || '');
+  const [isUpdatingFb, setIsUpdatingFb] = useState(false);
+
+  const handleUpdateFacebook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appUser?.uid) return;
+    setIsUpdatingFb(true);
+    try {
+      await updateDoc(doc(db, 'users', appUser.uid), {
+        facebook: fbLink
+      });
+      setShowFbModal(false);
+      alert('Cập nhật Facebook thành công! Vui lòng đăng xuất và đăng nhập lại để thấy thay đổi.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${appUser.uid}`);
+    } finally {
+      setIsUpdatingFb(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!appUser?.uid || !appUser?.className) return;
@@ -78,6 +98,11 @@ export default function StudentDashboard() {
               <h1 className="text-xl font-bold text-white tracking-wide">Học sinh: {appUser?.name} <span className="font-normal opacity-80">({appUser?.className})</span></h1>
             </div>
             <div className="flex items-center space-x-4">
+              {!appUser?.facebook && (
+                <button onClick={() => setShowFbModal(true)} className="text-blue-100 hover:text-white flex items-center transition-colors font-medium mr-2">
+                  <MessageCircle className="w-5 h-5 mr-1" /> Cập nhật Facebook
+                </button>
+              )}
               <button onClick={fetchData} disabled={isRefreshing} className="text-blue-100 hover:text-white flex items-center transition-colors font-medium mr-2">
                 <RefreshCw className={`w-5 h-5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Làm mới
               </button>
@@ -88,6 +113,44 @@ export default function StudentDashboard() {
           </div>
         </div>
       </nav>
+
+      {/* Update Facebook Modal */}
+      {showFbModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-all">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xl font-bold text-gray-900">Cập nhật Link Facebook</h3>
+              <button onClick={() => setShowFbModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Để giảm tải dung lượng máy chủ và tối ưu hóa tốc độ hệ thống, vui lòng cập nhật đường link Facebook cá nhân của bạn.
+            </p>
+            <form onSubmit={handleUpdateFacebook}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Đường link Facebook</label>
+                <input 
+                  type="url" 
+                  value={fbLink} 
+                  onChange={e => setFbLink(e.target.value)} 
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                  placeholder="https://facebook.com/..." 
+                  required
+                />
+              </div>
+              <div className="pt-4 flex justify-end space-x-3">
+                <button type="button" onClick={() => setShowFbModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                  Hủy
+                </button>
+                <button type="submit" disabled={isUpdatingFb} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+                  {isUpdatingFb ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Đề thi của bạn</h2>

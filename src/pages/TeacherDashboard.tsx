@@ -6,7 +6,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateEmail, updatePassword, deleteUser } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Link } from 'react-router-dom';
-import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, Phone, RefreshCw } from 'lucide-react';
+import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, MessageCircle, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Secondary app for creating users without logging out the main user
@@ -15,7 +15,7 @@ const secondaryAuth = getAuth(secondaryApp);
 
 export default function TeacherDashboard() {
   const { appUser, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'exams' | 'students' | 'phones'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'students' | 'facebook'>('exams');
   
   // Exams state
   const [exams, setExams] = useState<any[]>([]);
@@ -23,7 +23,7 @@ export default function TeacherDashboard() {
   // Students state
   const [students, setStudents] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
-  const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '', className: '', phone: '' });
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '', className: '', facebook: '' });
   const [creatingStudent, setCreatingStudent] = useState(false);
   const [studentError, setStudentError] = useState('');
   
@@ -32,8 +32,8 @@ export default function TeacherDashboard() {
   const [editStudentData, setEditStudentData] = useState({ name: '', className: '', email: '', password: '' });
   const [updateStudentError, setUpdateStudentError] = useState('');
   const [isUpdatingStudent, setIsUpdatingStudent] = useState(false);
-  const [editingPhoneStudent, setEditingPhoneStudent] = useState<any>(null);
-  const [editPhoneData, setEditPhoneData] = useState({ phone: '' });
+  const [editingFbStudent, setEditingFbStudent] = useState<any>(null);
+  const [editFbData, setEditFbData] = useState({ facebook: '' });
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [examToDelete, setExamToDelete] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export default function TeacherDashboard() {
         createdAt: new Date().toISOString()
       });
       await signOut(secondaryAuth);
-      setNewStudent({ name: '', email: '', password: '', className: '', phone: '' });
+      setNewStudent({ name: '', email: '', password: '', className: '', facebook: '' });
       alert('Tạo học sinh thành công!');
     } catch (error: any) {
       console.error("Error creating student:", error);
@@ -200,7 +200,7 @@ export default function TeacherDashboard() {
           const className = row['Class'] || row['Lớp'];
           const email = row['Email']?.toString().trim();
           const password = row['Password'] || row['Mật khẩu'];
-          const phone = row['Phone'] || row['Số điện thoại'] || '';
+          const facebook = row['Facebook'] || row['FB'] || row['Link Facebook'] || '';
           const role = row['Role'];
 
           // Skip if role is explicitly set to something other than student
@@ -234,7 +234,7 @@ export default function TeacherDashboard() {
                     name: String(name).trim(),
                     className: String(className).trim(),
                     password: String(password),
-                    phone: String(phone).trim(),
+                    facebook: String(facebook).trim(),
                     role: 'student',
                     createdAt: new Date().toISOString()
                   });
@@ -347,16 +347,17 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleUpdatePhone = async (e: React.FormEvent) => {
+  const handleUpdateFacebook = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPhoneStudent) return;
+    if (!editingFbStudent) return;
     try {
-      await updateDoc(doc(db, 'users', editingPhoneStudent.id), {
-        phone: editPhoneData.phone
+      await updateDoc(doc(db, 'users', editingFbStudent.id), {
+        facebook: editFbData.facebook
       });
-      setEditingPhoneStudent(null);
+      setEditingFbStudent(null);
+      fetchData();
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${editingPhoneStudent.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${editingFbStudent.id}`);
     }
   };
 
@@ -459,10 +460,10 @@ export default function TeacherDashboard() {
             <Users className="w-5 h-5 mr-2" /> Quản lý Học sinh
           </button>
           <button
-            onClick={() => setActiveTab('phones')}
-            className={`px-6 py-2.5 rounded-full font-semibold flex items-center transition-all duration-200 shadow-sm ${activeTab === 'phones' ? 'bg-indigo-600 text-white shadow-md transform -translate-y-0.5' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
+            onClick={() => setActiveTab('facebook')}
+            className={`px-6 py-2.5 rounded-full font-semibold flex items-center transition-all duration-200 shadow-sm ${activeTab === 'facebook' ? 'bg-indigo-600 text-white shadow-md transform -translate-y-0.5' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
           >
-            <Phone className="w-5 h-5 mr-2" /> Danh sách SĐT
+            <MessageCircle className="w-5 h-5 mr-2" /> Liên hệ Facebook
           </button>
         </div>
 
@@ -585,7 +586,7 @@ export default function TeacherDashboard() {
                 <div className="mt-8 pt-6 border-t border-gray-100">
                   <h4 className="text-sm font-bold text-gray-900 mb-2">Hoặc nhập từ file Excel</h4>
                   <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                    File Excel cần có các cột: <strong>FullName</strong>, <strong>Class</strong>, <strong>Email</strong>, <strong>Password</strong>, <strong>Phone</strong> (có thể thêm cột <strong>Role</strong> là "student").
+                    File Excel cần có các cột: <strong>FullName</strong>, <strong>Class</strong>, <strong>Email</strong>, <strong>Password</strong>, <strong>Facebook</strong> (có thể thêm cột <strong>Role</strong> là "student").
                   </p>
                   <label className="w-full flex justify-center items-center py-3 px-4 border-2 border-dashed border-indigo-300 rounded-xl shadow-sm text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer transition-colors">
                     {isImporting ? <span className="animate-pulse">Đang nhập...</span> : <><Upload className="w-5 h-5 mr-2" /> Chọn file Excel</>}
@@ -693,13 +694,13 @@ export default function TeacherDashboard() {
         )}
       </div>
 
-      {activeTab === 'phones' && (
+      {activeTab === 'facebook' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
           <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Danh sách số điện thoại học sinh</h3>
-                <p className="text-sm text-gray-500 mt-1">Quản lý số điện thoại Zalo để gửi thông báo</p>
+                <h3 className="text-lg font-bold text-gray-900">Danh sách liên hệ Facebook</h3>
+                <p className="text-sm text-gray-500 mt-1">Quản lý link Facebook để gửi thông báo cho học sinh</p>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -709,7 +710,7 @@ export default function TeacherDashboard() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Họ tên</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Lớp</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Số điện thoại (Zalo)</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Link Facebook</th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Thao tác</th>
                   </tr>
                 </thead>
@@ -724,8 +725,10 @@ export default function TeacherDashboard() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{student.email}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {student.phone ? (
-                          <span className="text-indigo-600 font-mono">{student.phone}</span>
+                        {student.facebook ? (
+                          <a href={student.facebook} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
+                            <MessageCircle className="w-4 h-4 mr-1" /> Nhắn tin
+                          </a>
                         ) : (
                           <span className="text-gray-400 italic">Chưa cập nhật</span>
                         )}
@@ -733,11 +736,11 @@ export default function TeacherDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => {
-                            setEditingPhoneStudent(student);
-                            setEditPhoneData({ phone: student.phone || '' });
+                            setEditingFbStudent(student);
+                            setEditFbData({ facebook: student.facebook || '' });
                           }}
                           className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Cập nhật SĐT"
+                          title="Cập nhật Facebook"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
@@ -751,19 +754,19 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* Edit Phone Modal */}
-      {editingPhoneStudent && (
+      {/* Edit Facebook Modal */}
+      {editingFbStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Cập nhật số điện thoại</h3>
-            <p className="text-sm text-gray-600 mb-4">Học sinh: <span className="font-semibold">{editingPhoneStudent.name}</span></p>
-            <form onSubmit={handleUpdatePhone}>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Cập nhật Link Facebook</h3>
+            <p className="text-sm text-gray-600 mb-4">Học sinh: <span className="font-semibold">{editingFbStudent.name}</span></p>
+            <form onSubmit={handleUpdateFacebook}>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Số điện thoại (Zalo)</label>
-                <input type="tel" value={editPhoneData.phone} onChange={e => setEditPhoneData({...editPhoneData, phone: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="09xxxx..." />
+                <label className="block text-sm font-medium text-gray-700">Đường link Facebook</label>
+                <input type="url" value={editFbData.facebook} onChange={e => setEditFbData({...editFbData, facebook: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="https://facebook.com/..." />
               </div>
               <div className="pt-4 flex justify-end space-x-3">
-                <button type="button" onClick={() => setEditingPhoneStudent(null)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <button type="button" onClick={() => setEditingFbStudent(null)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                   Hủy
                 </button>
                 <button type="submit" className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
