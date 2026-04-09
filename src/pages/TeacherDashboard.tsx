@@ -690,7 +690,7 @@ export default function TeacherDashboard() {
                         <th className="w-[8%] px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Lớp</th>
                         <th className="w-[24%] px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
                         <th className="w-[12%] px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Mật khẩu</th>
-                        <th className="w-[24%] px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Thống kê</th>
+                        <th className="w-[24%] px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Tiến độ làm bài</th>
                         <th className="w-[10%] px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Thao tác</th>
                       </tr>
                     </thead>
@@ -709,6 +709,12 @@ export default function TeacherDashboard() {
                         const openedExams = assignedExamsList.filter(exam => 
                           (!exam.startTime || new Date(exam.startTime) <= now)
                         ).length;
+
+                        // Calculate completed exams using submissionSummary
+                        const completedExams = assignedExamsList.filter(exam => {
+                          if (!exam.submissionSummary) return false;
+                          return exam.submissionSummary.some((s: any) => s.studentId === student.uid);
+                        }).length;
                         
                         return (
                         <tr key={student.id} className="hover:bg-gray-50 transition-colors">
@@ -724,10 +730,10 @@ export default function TeacherDashboard() {
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium">
                             <div className="flex flex-col items-center justify-center">
-                              <span className="text-base font-bold text-indigo-600">
-                                {openedExams} <span className="text-gray-400 text-xs font-normal">/ {totalAssignedExams}</span>
+                              <span className="text-base font-bold text-emerald-600">
+                                {completedExams} <span className="text-gray-400 text-xs font-normal">/ {openedExams}</span>
                               </span>
-                              <span className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Đã mở / Đã giao</span>
+                              <span className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Đã làm / Đã mở</span>
                             </div>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
