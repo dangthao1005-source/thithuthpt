@@ -731,9 +731,9 @@ export default function TeacherDashboard() {
                           <td className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium">
                             <div className="flex flex-col items-center justify-center">
                               <span className="text-base font-bold text-emerald-600">
-                                {completedExams} <span className="text-gray-400 text-xs font-normal">/ {openedExams}</span>
+                                {completedExams} <span className="text-gray-400 text-xs font-normal">/ {openedExams} / {totalAssignedExams}</span>
                               </span>
-                              <span className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Đã làm / Đã mở</span>
+                              <span className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Đã làm / Đã mở / Đã giao</span>
                             </div>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
