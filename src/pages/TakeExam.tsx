@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, updateDoc, arrayUnion } from 'firebase/firestore';
 import MathText from '../components/MathText';
 import { Clock, AlertCircle, ChevronLeft, CheckCircle, BookOpen } from 'lucide-react';
 
@@ -132,7 +132,22 @@ export default function TakeExam() {
     };
 
     try {
-      await addDoc(collection(db, 'submissions'), submissionData);
+      const docRef = await addDoc(collection(db, 'submissions'), submissionData);
+      
+      // Update the exam document with a summary of the submission
+      // This allows teachers to see who submitted without querying the submissions collection
+      const examRef = doc(db, 'exams', exam.id);
+      await updateDoc(examRef, {
+        submissionSummary: arrayUnion({
+          submissionId: docRef.id,
+          studentId: appUser.uid,
+          studentName: appUser.name,
+          score,
+          incorrectQuestions,
+          submittedAt: submissionData.submittedAt
+        })
+      });
+
       setSubmittedResult({ score, incorrectQuestions });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'submissions');

@@ -40,6 +40,7 @@ export default function TeacherDashboard() {
   const [examToExtend, setExamToExtend] = useState<any>(null);
   const [newEndTime, setNewEndTime] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncingExamId, setSyncingExamId] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!appUser?.uid) return;
@@ -98,10 +99,10 @@ export default function TeacherDashboard() {
         return nameA.localeCompare(nameB, 'vi');
       });
       setStudents(studentsList);
-
-      const qSubmissions = query(collection(db, 'submissions'));
-      const subSnap = await getDocs(qSubmissions);
-      setSubmissions(subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      // Removed global submissions fetch to save Firebase Quota
+      // Submissions will only be fetched per-exam in ExamResults.tsx
+      setSubmissions([]);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'teacher_data');
     } finally {
@@ -413,6 +414,57 @@ export default function TeacherDashboard() {
     }
   };
 
+  const handleSyncOldData = async (examId: string) => {
+    setSyncingExamId(examId);
+    try {
+      // 1. Fetch all submissions for this exam
+      const qSubmissions = query(collection(db, 'submissions'), where('examId', '==', examId));
+      const subSnap = await getDocs(qSubmissions);
+      const subs = subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+
+      // 2. Get unique submissions (latest per student)
+      const map = new Map();
+      subs.forEach(sub => {
+        if (!map.has(sub.studentId)) {
+          map.set(sub.studentId, sub);
+        } else {
+          const existing = map.get(sub.studentId);
+          if (new Date(sub.submittedAt).getTime() > new Date(existing.submittedAt).getTime()) {
+            map.set(sub.studentId, sub);
+          }
+        }
+      });
+      const uniqueSubs = Array.from(map.values());
+
+      // 3. Build summary
+      const summary = uniqueSubs.map(s => {
+        const student = students.find(st => st.uid === s.studentId);
+        return {
+          submissionId: s.id,
+          studentId: s.studentId,
+          studentName: student ? student.name : 'Học sinh',
+          score: s.score,
+          incorrectQuestions: s.incorrectQuestions || [],
+          submittedAt: s.submittedAt
+        };
+      });
+
+      // 4. Update exam document
+      await updateDoc(doc(db, 'exams', examId), {
+        submissionSummary: summary
+      });
+
+      // 5. Update local state
+      setExams(exams.map(e => e.id === examId ? { ...e, submissionSummary: summary } : e));
+      alert('Đồng bộ dữ liệu cũ thành công!');
+    } catch (error) {
+      console.error("Error syncing old data:", error);
+      alert('Có lỗi xảy ra khi đồng bộ dữ liệu.');
+    } finally {
+      setSyncingExamId(null);
+    }
+  };
+
   const handleExtendTime = async () => {
     if (!examToExtend || !newEndTime) return;
     try {
@@ -506,6 +558,28 @@ export default function TeacherDashboard() {
                               Thời gian mở: {exam.startTime ? new Date(exam.startTime).toLocaleString('vi-VN') : 'Không giới hạn'} - {exam.endTime ? new Date(exam.endTime).toLocaleString('vi-VN') : 'Không giới hạn'}
                             </p>
                           )}
+                          <div className="mt-1 flex items-center space-x-3">
+                            <p className="text-sm font-semibold text-indigo-600">
+                              Đã nộp: {exam.submissionSummary ? (() => {
+                                const uniqueStudents = new Set(exam.submissionSummary.map((s: any) => s.studentId));
+                                return uniqueStudents.size;
+                              })() : 0} học sinh
+                            </p>
+                            {exam.submissionSummary === undefined && (
+                              <button
+                                onClick={() => handleSyncOldData(exam.id)}
+                                disabled={syncingExamId === exam.id}
+                                className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 transition-colors flex items-center"
+                              >
+                                {syncingExamId === exam.id ? (
+                                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                )}
+                                Đồng bộ dữ liệu cũ
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -632,13 +706,8 @@ export default function TeacherDashboard() {
                         
                         const totalAssignedExams = assignedExamsList.length;
                         
-                        const completedExams = assignedExamsList.filter(exam => 
-                          submissions.some(sub => sub.examId === exam.id && sub.studentId === student.uid)
-                        ).length;
-                        
                         const openedExams = assignedExamsList.filter(exam => 
-                          (!exam.startTime || new Date(exam.startTime) <= now) ||
-                          submissions.some(sub => sub.examId === exam.id && sub.studentId === student.uid)
+                          (!exam.startTime || new Date(exam.startTime) <= now)
                         ).length;
                         
                         return (
@@ -655,10 +724,10 @@ export default function TeacherDashboard() {
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium">
                             <div className="flex flex-col items-center justify-center">
-                              <span className={`text-base font-bold ${completedExams === openedExams && openedExams > 0 ? 'text-emerald-600' : completedExams === 0 && openedExams > 0 ? 'text-rose-500' : 'text-indigo-600'}`}>
-                                {completedExams} <span className="text-gray-400 text-xs font-normal">/ {openedExams} / {totalAssignedExams}</span>
+                              <span className="text-base font-bold text-indigo-600">
+                                {openedExams} <span className="text-gray-400 text-xs font-normal">/ {totalAssignedExams}</span>
                               </span>
-                              <span className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Đã làm / Đã mở / Đã giao</span>
+                              <span className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Đã mở / Đã giao</span>
                             </div>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">

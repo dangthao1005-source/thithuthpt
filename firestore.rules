@@ -50,6 +50,7 @@ service cloud.firestore {
              data.status in ['draft', 'published', 'completed'] &&
              data.assignedClasses is list && data.assignedClasses.size() <= 50 &&
              data.questions is list && data.questions.size() <= 100 &&
+             (!('submissionSummary' in data) || data.submissionSummary is list) &&
              data.createdAt is string;
     }
 
@@ -88,7 +89,8 @@ service cloud.firestore {
       
       // Only teachers can create/update/delete exams
       allow create: if isTeacher() && isValidExam(request.resource.data) && request.resource.data.teacherId == request.auth.uid;
-      allow update: if isTeacher() && isValidExam(request.resource.data) && resource.data.teacherId == request.auth.uid && request.resource.data.teacherId == resource.data.teacherId && request.resource.data.createdAt == resource.data.createdAt;
+      allow update: if (isTeacher() && isValidExam(request.resource.data) && resource.data.teacherId == request.auth.uid && request.resource.data.teacherId == resource.data.teacherId && request.resource.data.createdAt == resource.data.createdAt) ||
+                    (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['submissionSummary']));
       allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 

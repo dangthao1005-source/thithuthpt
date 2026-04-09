@@ -17,6 +17,7 @@ export default function ExamResults() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [regradingId, setRegradingId] = useState<string | null>(null);
   const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
+  const [viewingSubmissionDetails, setViewingSubmissionDetails] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const uniqueSubmissions = useMemo(() => {
@@ -47,14 +48,26 @@ export default function ExamResults() {
     try {
       const docRef = doc(db, 'exams', examId);
       const docSnap = await getDoc(docRef);
+      let examData: any = null;
       if (docSnap.exists()) {
-        setExam({ id: docSnap.id, ...docSnap.data() });
+        examData = { id: docSnap.id, ...docSnap.data() };
+        setExam(examData);
       }
 
-      const qSubmissions = query(collection(db, 'submissions'), where('examId', '==', examId));
-      const subSnap = await getDocs(qSubmissions);
-      const subs = subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setSubmissions(subs);
+      // Use submissionSummary from exam document instead of fetching all submissions
+      // This saves N reads where N is the number of submissions
+      if (examData && examData.submissionSummary) {
+        const subs = examData.submissionSummary.map((s: any) => ({
+          id: s.submissionId,
+          studentId: s.studentId,
+          score: s.score,
+          incorrectQuestions: s.incorrectQuestions || [],
+          submittedAt: s.submittedAt
+        }));
+        setSubmissions(subs);
+      } else {
+        setSubmissions([]);
+      }
 
       const qStudents = query(collection(db, 'users'), where('role', '==', 'student'));
       const studentSnap = await getDocs(qStudents);
@@ -79,10 +92,21 @@ export default function ExamResults() {
   };
 
   const handleDeleteSubmission = async () => {
-    if (!submissionToDelete) return;
+    if (!submissionToDelete || !exam) return;
     setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'submissions', submissionToDelete));
+      
+      // Also remove from exam's submissionSummary
+      if (exam.submissionSummary) {
+        const updatedSummary = exam.submissionSummary.filter((s: any) => s.submissionId !== submissionToDelete);
+        await updateDoc(doc(db, 'exams', exam.id), {
+          submissionSummary: updatedSummary
+        });
+        setExam({ ...exam, submissionSummary: updatedSummary });
+        setSubmissions(submissions.filter(s => s.id !== submissionToDelete));
+      }
+      
       setSubmissionToDelete(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `submissions/${submissionToDelete}`);
@@ -95,7 +119,13 @@ export default function ExamResults() {
     if (!exam) return;
     setRegradingId(submission.id);
     try {
-      const answers = typeof submission.answers === 'string' ? JSON.parse(submission.answers || '{}') : submission.answers;
+      // Fetch the full submission document to get the answers
+      const subDocRef = doc(db, 'submissions', submission.id);
+      const subDoc = await getDoc(subDocRef);
+      if (!subDoc.exists()) throw new Error('Không tìm thấy bài làm');
+      const subData = subDoc.data();
+
+      const answers = typeof subData.answers === 'string' ? JSON.parse(subData.answers || '{}') : subData.answers;
       let score = 0;
       let incorrectQuestions: string[] = [];
 
@@ -139,12 +169,45 @@ export default function ExamResults() {
         score,
         incorrectQuestions
       });
+
+      // Also update the score in the exam's submissionSummary
+      const updatedSummary = exam.submissionSummary.map((s: any) => {
+        if (s.submissionId === submission.id) {
+          return { ...s, score };
+        }
+        return s;
+      });
+      await updateDoc(doc(db, 'exams', exam.id), {
+        submissionSummary: updatedSummary
+      });
+      
+      // Update local state
+      setExam({ ...exam, submissionSummary: updatedSummary });
+      setSubmissions(submissions.map(s => s.id === submission.id ? { ...s, score } : s));
+
       alert('Đã chấm lại thành công!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `submissions/${submission.id}`);
     } finally {
       setRegradingId(null);
     }
+  };
+
+  const handleViewDetails = async (subId: string) => {
+    setViewingDetailsId(subId);
+    try {
+      const subDoc = await getDoc(doc(db, 'submissions', subId));
+      if (subDoc.exists()) {
+        setViewingSubmissionDetails({ id: subDoc.id, ...subDoc.data() });
+      }
+    } catch (error) {
+      console.error("Error fetching submission details:", error);
+    }
+  };
+
+  const closeDetails = () => {
+    setViewingDetailsId(null);
+    setViewingSubmissionDetails(null);
   };
 
   const getScoreDistribution = () => {
@@ -293,7 +356,7 @@ export default function ExamResults() {
                           {sub.incorrectQuestions.length} câu sai
                         </div>
                         <button
-                          onClick={() => setViewingDetailsId(sub.id)}
+                          onClick={() => handleViewDetails(sub.id)}
                           className="flex items-center text-xs font-bold bg-white border border-rose-200 text-rose-600 px-3 py-1.5 rounded-md hover:bg-rose-50 transition-colors shadow-sm"
                         >
                           <Eye className="w-3.5 h-3.5 mr-1.5" />
@@ -355,7 +418,7 @@ export default function ExamResults() {
                 Chi tiết các câu trả lời sai
               </h3>
               <button 
-                onClick={() => setViewingDetailsId(null)}
+                onClick={closeDetails}
                 className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <XCircle className="w-6 h-6" />
@@ -364,8 +427,10 @@ export default function ExamResults() {
             
             <div className="p-6 overflow-y-auto flex-1 bg-gray-50/30">
               {(() => {
-                const sub = uniqueSubmissions.find(s => s.id === viewingDetailsId);
-                if (!sub || !sub.incorrectQuestions || !exam || !exam.questions) return null;
+                const sub = viewingSubmissionDetails;
+                if (!sub || !sub.incorrectQuestions || !exam || !exam.questions) {
+                  return <div className="flex justify-center items-center h-32"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>;
+                }
                 
                 return (
                   <div className="space-y-6">
@@ -444,7 +509,7 @@ export default function ExamResults() {
             
             <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
               <button 
-                onClick={() => setViewingDetailsId(null)}
+                onClick={closeDetails}
                 className="px-6 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
               >
                 Đóng

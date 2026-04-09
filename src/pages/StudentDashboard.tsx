@@ -66,14 +66,23 @@ export default function StudentDashboard() {
       
       setExams(examsList);
 
-      // Fetch student's submissions
-      const qSubmissions = query(
-        collection(db, 'submissions'),
-        where('studentId', '==', appUser.uid)
-      );
+      // SMART FETCH: We no longer need to fetch submissions at all!
+      // The exam document now contains a submissionSummary array.
+      // We can just check if the student's ID is in that array.
+      const activeSubmissions: any[] = [];
+      examsList.forEach((exam: any) => {
+        if (exam.submissionSummary) {
+          const studentSub = exam.submissionSummary.find((s: any) => s.studentId === appUser.uid);
+          if (studentSub) {
+            activeSubmissions.push({
+              examId: exam.id,
+              ...studentSub
+            });
+          }
+        }
+      });
       
-      const subSnap = await getDocs(qSubmissions);
-      setSubmissions(subSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setSubmissions(activeSubmissions);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'student_data');
     } finally {
@@ -207,15 +216,18 @@ export default function StudentDashboard() {
                           Chưa mở
                         </div>
                       ) : isAfterEnd ? (
-                        <div className="text-red-500 font-semibold bg-red-50 px-5 py-2.5 rounded-xl border border-red-100">
-                          Đã đóng
-                        </div>
+                        <Link
+                          to={`/student/exam/${exam.id}`}
+                          className="inline-flex items-center px-5 py-2.5 border border-gray-200 shadow-sm text-sm font-semibold rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all transform hover:-translate-y-0.5"
+                        >
+                          Xem lại bài
+                        </Link>
                       ) : (
                         <Link
                           to={`/student/exam/${exam.id}`}
                           className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-semibold rounded-xl shadow-md text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:-translate-y-0.5"
                         >
-                          <PlayCircle className="w-5 h-5 mr-2" /> Bắt đầu làm bài
+                          <PlayCircle className="w-5 h-5 mr-2" /> Vào bài
                         </Link>
                       )}
                     </div>
