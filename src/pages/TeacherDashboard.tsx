@@ -6,7 +6,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateEmail, updatePassword, deleteUser } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Link } from 'react-router-dom';
-import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, MessageCircle, RefreshCw } from 'lucide-react';
+import { Plus, Users, FileText, LogOut, Edit, Trash2, Upload, X, AlertTriangle, Clock, MessageCircle, RefreshCw, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Secondary app for creating users without logging out the main user
@@ -41,10 +41,12 @@ export default function TeacherDashboard() {
   const [newEndTime, setNewEndTime] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [syncingExamId, setSyncingExamId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!appUser?.uid) return;
     setIsRefreshing(true);
+    setError(null);
     try {
       const qExams = query(collection(db, 'exams'), where('teacherId', '==', appUser.uid));
       const examSnap = await getDocs(qExams);
@@ -103,8 +105,13 @@ export default function TeacherDashboard() {
       // Removed global submissions fetch to save Firebase Quota
       // Submissions will only be fetched per-exam in ExamResults.tsx
       setSubmissions([]);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'teacher_data');
+    } catch (err: any) {
+      console.error("Error fetching data:", err);
+      if (err.message && err.message.includes('Quota')) {
+        setError('Hệ thống đang quá tải (vượt quá giới hạn truy cập miễn phí của Firebase). Vui lòng thử lại sau.');
+      } else {
+        setError('Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.');
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -498,6 +505,12 @@ export default function TeacherDashboard() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start">
+            <AlertCircle className="w-5 h-5 text-rose-600 mr-3 mt-0.5 flex-shrink-0" />
+            <div className="text-rose-700 font-medium">{error}</div>
+          </div>
+        )}
         <div className="flex space-x-4 mb-8">
           <button
             onClick={() => setActiveTab('exams')}

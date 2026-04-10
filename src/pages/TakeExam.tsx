@@ -12,6 +12,7 @@ export default function TakeExam() {
   const navigate = useNavigate();
 
   const [exam, setExam] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,6 +25,7 @@ export default function TakeExam() {
     const fetchExam = async () => {
       if (!examId) return;
       try {
+        setError(null);
         const docRef = doc(db, 'exams', examId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -41,9 +43,16 @@ export default function TakeExam() {
 
           setExam({ id: docSnap.id, ...data });
           setTimeLeft(data.duration * 60); // convert to seconds
+        } else {
+          setError('Không tìm thấy đề thi.');
         }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `exams/${examId}`);
+      } catch (err: any) {
+        console.error("Error fetching exam:", err);
+        if (err.message && err.message.includes('Quota')) {
+          setError('Hệ thống đang quá tải (vượt quá giới hạn truy cập miễn phí của Firebase). Vui lòng thử lại sau.');
+        } else {
+          setError('Đã xảy ra lỗi khi tải đề thi. Vui lòng thử lại.');
+        }
       }
     };
     fetchExam();
@@ -167,6 +176,26 @@ export default function TakeExam() {
       handleAnswerChange(activeInputId, currentVal + val);
     }
   };
+
+  if (error) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center border border-rose-100">
+          <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Không thể tải đề thi</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => navigate('/student')}
+            className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
+          >
+            Quay lại danh sách
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!exam) return <div className="flex h-screen items-center justify-center bg-gray-50 text-indigo-600 font-medium text-lg">Đang tải đề thi...</div>;
 
