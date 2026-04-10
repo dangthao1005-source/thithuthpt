@@ -276,6 +276,72 @@ export default function TakeExam() {
                         <MathText text={question.content} />
                       </div>
                       
+                      {question.type === 'multiple_choice' && question.options && (
+                        <div className="space-y-3 mt-4 mb-6">
+                          {question.options.map((opt: string, i: number) => {
+                            const letter = String.fromCharCode(65 + i);
+                            let cleanOpt = opt.replace(new RegExp(`^${letter}[\\.\\:\\)]\\s*|^${letter}\\s+`, 'i'), '').trim();
+                            if (!cleanOpt) cleanOpt = opt;
+                            
+                            const isCorrect = question.correctAnswer === letter;
+                            let studentAns = '';
+                            try { studentAns = answers[id]; } catch (e) {}
+                            const isStudentChoice = studentAns === letter;
+                            
+                            return (
+                              <div key={i} className={`flex items-start p-3 border rounded-xl ${isCorrect ? 'bg-emerald-50 border-emerald-200' : isStudentChoice ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex-1 flex items-start">
+                                  <span className={`font-semibold mr-2 mt-0.5 ${isCorrect ? 'text-emerald-700' : isStudentChoice ? 'text-rose-700' : 'text-gray-700'}`}>{letter}.</span>
+                                  <div className={`flex-1 overflow-hidden ${isCorrect ? 'text-emerald-800 font-medium' : isStudentChoice ? 'text-rose-800 font-medium' : 'text-gray-800'}`}><MathText text={cleanOpt} /></div>
+                                </div>
+                                {isCorrect && <CheckCircle className="w-5 h-5 text-emerald-500 ml-2 flex-shrink-0" />}
+                                {isStudentChoice && !isCorrect && <AlertCircle className="w-5 h-5 text-rose-500 ml-2 flex-shrink-0" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {question.type === 'true_false' && question.options && (
+                        <div className="space-y-3 mt-4 mb-6">
+                          {question.options.map((opt: string, i: number) => {
+                            const letter = String.fromCharCode(97 + i);
+                            let cleanOpt = opt.replace(new RegExp(`^${letter}[\\.\\:\\)]\\s*|^${letter}\\s+`, 'i'), '').trim();
+                            if (!cleanOpt) cleanOpt = opt;
+                            
+                            let correctVal = null;
+                            let studentVal = null;
+                            try {
+                              const cArr = typeof question.correctAnswer === 'string' ? JSON.parse(question.correctAnswer || '[]') : (question.correctAnswer || []);
+                              correctVal = cArr[i];
+                              const sArr = Array.isArray(answers[id]) ? answers[id] : [];
+                              studentVal = sArr[i];
+                            } catch(e) {}
+                            
+                            const isCorrect = studentVal === correctVal;
+                            
+                            return (
+                              <div key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-xl gap-4 ${studentVal !== undefined && studentVal !== null && !isCorrect ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex-1 flex items-start">
+                                  <span className="font-semibold text-gray-700 mr-3 mt-0.5">{letter}.</span>
+                                  <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                  {studentVal !== undefined && studentVal !== null && (
+                                    <div className={`flex-shrink-0 text-sm px-2 py-1 rounded border ${isCorrect ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                                      Bạn chọn: {studentVal === true ? 'Đúng' : 'Sai'}
+                                    </div>
+                                  )}
+                                  <div className="flex-shrink-0 font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
+                                    Đáp án: {correctVal === true ? 'Đúng' : correctVal === false ? 'Sai' : 'Chưa có'}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
                       {question.imageUrls && question.imageUrls.length > 0 && (
                         <div className="mb-4 space-y-4">
                           {question.imageUrls.map((url: string, imgIdx: number) => (

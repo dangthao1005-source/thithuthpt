@@ -225,7 +225,7 @@ export default function TeacherDashboard() {
                 name: String(name).trim(),
                 className: String(className).trim(),
                 password: String(password),
-                phone: String(phone).trim(),
+                facebook: String(facebook).trim(),
                 role: 'student',
                 createdAt: new Date().toISOString()
               });
