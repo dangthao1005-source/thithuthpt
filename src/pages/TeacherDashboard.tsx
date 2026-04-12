@@ -322,20 +322,86 @@ export default function TeacherDashboard() {
       const passwordChanged = editStudentData.password !== editingStudent.password;
 
       if (emailChanged || passwordChanged) {
+        if (!editingStudent.password) {
+          setUpdateStudentError("Không thể đổi Email/Mật khẩu vì mật khẩu cũ không được lưu trong hệ thống (tài khoản cũ). Vui lòng tạo tài khoản mới.");
+          setIsUpdatingStudent(false);
+          return;
+        }
+        
+        if (passwordChanged && editStudentData.password.length < 6) {
+          setUpdateStudentError("Mật khẩu mới phải có ít nhất 6 ký tự.");
+          setIsUpdatingStudent(false);
+          return;
+        }
+
         try {
-          const userCredential = await signInWithEmailAndPassword(secondaryAuth, editingStudent.email, editingStudent.password);
+          let userCredential;
+          try {
+            userCredential = await signInWithEmailAndPassword(secondaryAuth, editingStudent.email, editingStudent.password);
+          } catch (signInErr: any) {
+            // Recovery: If email or password was previously updated in Auth but not Firestore
+            if (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/wrong-password') {
+              let recovered = false;
+              
+              // Try 1: Old email, New password
+              if (!recovered && passwordChanged) {
+                try {
+                  userCredential = await signInWithEmailAndPassword(secondaryAuth, editingStudent.email, editStudentData.password);
+                  recovered = true;
+                } catch (e) {}
+              }
+              
+              // Try 2: New email, Old password
+              if (!recovered && emailChanged) {
+                try {
+                  userCredential = await signInWithEmailAndPassword(secondaryAuth, editStudentData.email, editingStudent.password);
+                  recovered = true;
+                } catch (e) {}
+              }
+              
+              // Try 3: New email, New password
+              if (!recovered && emailChanged && passwordChanged) {
+                try {
+                  userCredential = await signInWithEmailAndPassword(secondaryAuth, editStudentData.email, editStudentData.password);
+                  recovered = true;
+                } catch (e) {}
+              }
+              
+              if (!recovered) {
+                throw signInErr; // Throw original error if all recovery attempts fail
+              }
+            } else {
+              throw signInErr;
+            }
+          }
           
-          if (emailChanged) {
+          if (emailChanged && userCredential.user.email !== editStudentData.email) {
             await updateEmail(userCredential.user, editStudentData.email);
           }
           if (passwordChanged) {
+            // Only update password if we didn't just use it to recover the account
+            const usedNewPasswordToRecover = userCredential && userCredential.user && 
+              (editStudentData.password !== editingStudent.password); // We can't easily check what password was used to sign in, but if we reached here and passwordChanged is true, we should just update it to be safe.
+            // Actually, updatePassword doesn't hurt if it's the same password.
             await updatePassword(userCredential.user, editStudentData.password);
           }
           
           await signOut(secondaryAuth);
         } catch (authError: any) {
           console.error("Auth update error:", authError);
-          setUpdateStudentError("Không thể cập nhật Email/Mật khẩu trên hệ thống xác thực. Có thể mật khẩu cũ lưu trong hệ thống không khớp với mật khẩu thực tế. Lỗi: " + authError.message);
+          if (authError.code === 'auth/weak-password') {
+            setUpdateStudentError("Mật khẩu mới quá yếu (phải có ít nhất 6 ký tự).");
+          } else if (authError.code === 'auth/invalid-email') {
+            setUpdateStudentError("Email mới không hợp lệ.");
+          } else if (authError.code === 'auth/email-already-in-use') {
+            setUpdateStudentError("Email mới đã được sử dụng bởi một tài khoản khác.");
+          } else if (authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {
+            setUpdateStudentError("Không thể xác thực. Mật khẩu cũ lưu trong hệ thống không khớp với mật khẩu thực tế của tài khoản.");
+          } else if (authError.code === 'auth/too-many-requests') {
+            setUpdateStudentError("Quá nhiều yêu cầu. Vui lòng thử lại sau.");
+          } else {
+            setUpdateStudentError("Lỗi hệ thống xác thực: " + authError.message);
+          }
           setIsUpdatingStudent(false);
           return;
         }
@@ -348,8 +414,9 @@ export default function TeacherDashboard() {
         password: editStudentData.password
       });
       setEditingStudent(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${editingStudent.id}`);
+    } catch (error: any) {
+      console.error("Firestore update error:", error);
+      setUpdateStudentError("Lỗi cập nhật dữ liệu: " + (error.message || "Không xác định"));
     } finally {
       setIsUpdatingStudent(false);
     }
@@ -384,10 +451,9 @@ export default function TeacherDashboard() {
           await deleteUser(userCredential.user);
           await signOut(secondaryAuth);
         } catch (authError: any) {
-          console.error("Auth delete error:", authError);
-          setDeleteStudentError("Không thể xóa tài khoản xác thực (có thể do sai mật khẩu cũ). Vui lòng đổi lại mật khẩu cho đúng rồi mới xóa. Lỗi: " + authError.message);
-          setIsDeletingStudent(false);
-          return;
+          console.warn("Auth delete error (ignoring to allow Firestore deletion):", authError);
+          // We ignore the auth error so the teacher can at least remove the student from the class list.
+          // The Auth user might be orphaned, but without a Firestore doc, they have no access.
         }
       }
 
