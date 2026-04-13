@@ -7,7 +7,7 @@ import { CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
 import MathText from '../components/MathText';
 
 export default function StudentExamResult() {
-  const { examId } = useParams<{ examId: string }>();
+  const { examId, studentId } = useParams<{ examId: string, studentId?: string }>();
   const { appUser } = useAuth();
   const navigate = useNavigate();
   const [exam, setExam] = useState<any>(null);
@@ -23,10 +23,11 @@ export default function StudentExamResult() {
           setExam({ id: examDoc.id, ...examDoc.data() });
         }
 
+        const targetStudentId = studentId || appUser.uid;
         const q = query(
           collection(db, 'submissions'),
           where('examId', '==', examId),
-          where('studentId', '==', appUser.uid)
+          where('studentId', '==', targetStudentId)
         );
         const subSnap = await getDocs(q);
         if (!subSnap.empty) {
@@ -222,10 +223,16 @@ export default function StudentExamResult() {
         )}
 
         <button
-          onClick={() => navigate('/student')}
+          onClick={() => {
+            if (appUser?.role === 'teacher') {
+              navigate('/teacher');
+            } else {
+              navigate('/student');
+            }
+          }}
           className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-2xl font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-lg"
         >
-          Quay lại danh sách bài tập
+          {appUser?.role === 'teacher' ? 'Quay lại bảng điều khiển' : 'Quay lại danh sách bài tập'}
         </button>
       </div>
     </div>

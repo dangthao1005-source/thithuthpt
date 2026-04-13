@@ -78,6 +78,11 @@ const AppRoutes = () => {
           <StudentExamResult />
         </ProtectedRoute>
       } />
+      <Route path="/teacher/exam/:examId/result/:studentId" element={
+        <ProtectedRoute allowedRoles={['teacher']}>
+          <StudentExamResult />
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 };
