@@ -272,7 +272,7 @@ export default function TakeExam() {
                   return (
                     <div key={id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                       <div className="font-bold text-lg text-indigo-700 mb-3">Câu {idx + 1}</div>
-                      <div className="text-gray-800 mb-4 font-medium overflow-hidden">
+                      <div className="text-gray-800 mb-4 font-medium min-w-0 overflow-x-auto">
                         <MathText text={question.content} />
                       </div>
                       
@@ -292,7 +292,7 @@ export default function TakeExam() {
                               <div key={i} className={`flex items-start p-3 border rounded-xl ${isCorrect ? 'bg-emerald-50 border-emerald-200' : isStudentChoice ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex-1 flex items-start">
                                   <span className={`font-semibold mr-2 mt-0.5 ${isCorrect ? 'text-emerald-700' : isStudentChoice ? 'text-rose-700' : 'text-gray-700'}`}>{letter}.</span>
-                                  <div className={`flex-1 overflow-hidden ${isCorrect ? 'text-emerald-800 font-medium' : isStudentChoice ? 'text-rose-800 font-medium' : 'text-gray-800'}`}><MathText text={cleanOpt} /></div>
+                                  <div className={`flex-1 min-w-0 overflow-x-auto ${isCorrect ? 'text-emerald-800 font-medium' : isStudentChoice ? 'text-rose-800 font-medium' : 'text-gray-800'}`}><MathText text={cleanOpt} /></div>
                                 </div>
                                 {isCorrect && <CheckCircle className="w-5 h-5 text-emerald-500 ml-2 flex-shrink-0" />}
                                 {isStudentChoice && !isCorrect && <AlertCircle className="w-5 h-5 text-rose-500 ml-2 flex-shrink-0" />}
@@ -324,7 +324,7 @@ export default function TakeExam() {
                               <div key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-xl gap-4 ${studentVal !== undefined && studentVal !== null && !isCorrect ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex-1 flex items-start">
                                   <span className="font-semibold text-gray-700 mr-3 mt-0.5">{letter}.</span>
-                                  <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                                  <div className="text-gray-800 flex-1 min-w-0 overflow-x-auto"><MathText text={cleanOpt} /></div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                                   {studentVal !== undefined && studentVal !== null && (
@@ -357,7 +357,7 @@ export default function TakeExam() {
 
                       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mt-4">
                         <div className="font-semibold text-indigo-800 mb-2">Lời giải:</div>
-                        <div className="text-gray-700 overflow-hidden">
+                        <div className="text-gray-700 min-w-0 overflow-x-auto">
                           {question.explanation ? (
                             <MathText text={question.explanation} />
                           ) : (
@@ -416,7 +416,7 @@ export default function TakeExam() {
             <div key={q.id} className="bg-white shadow-sm border border-gray-200 sm:rounded-3xl p-6 md:p-8 transition-all hover:shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-start mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5 shadow-sm">
                 <span className="font-black text-lg mr-4 text-blue-700 whitespace-nowrap bg-white px-4 py-1.5 rounded-xl shadow-sm mb-3 sm:mb-0 border border-blue-100">Câu {index + 1}:</span>
-                <div className="text-gray-800 text-lg leading-relaxed mt-1 sm:mt-0 flex-1 font-medium overflow-hidden">
+                <div className="text-gray-800 text-lg leading-relaxed mt-1 sm:mt-0 flex-1 font-medium min-w-0 overflow-x-auto">
                   <MathText text={q.content} />
                 </div>
               </div>
@@ -457,7 +457,7 @@ export default function TakeExam() {
                         </div>
                         <div className="ml-3 flex-1 flex items-start">
                           <span className="font-semibold text-gray-700 mr-2 mt-0.5">{letter}.</span>
-                          <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                          <div className="text-gray-800 flex-1 min-w-0 overflow-x-auto"><MathText text={cleanOpt} /></div>
                         </div>
                       </label>
                     );
@@ -480,7 +480,7 @@ export default function TakeExam() {
                         <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors gap-4">
                           <div className="flex-1 flex items-start">
                             <span className="font-semibold text-gray-700 mr-3 mt-0.5">{letter}.</span>
-                            <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                            <div className="text-gray-800 flex-1 min-w-0 overflow-x-auto"><MathText text={cleanOpt} /></div>
                           </div>
                           <div className="flex space-x-2 sm:flex-shrink-0">
                             <button

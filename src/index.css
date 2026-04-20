@@ -15,11 +15,17 @@ body {
 .math-text, .whitespace-pre-wrap {
   word-break: break-word;
   overflow-wrap: break-word;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 /* Make block math scrollable horizontally instead of overflowing */
 .katex-display {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   overflow-y: hidden;
   max-width: 100%;
   padding-bottom: 0.25rem;

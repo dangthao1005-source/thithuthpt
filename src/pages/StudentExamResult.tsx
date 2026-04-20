@@ -118,7 +118,7 @@ export default function StudentExamResult() {
                 return (
                   <div key={id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                     <div className="font-bold text-lg text-indigo-700 mb-3">Câu {idx + 1}</div>
-                    <div className="text-gray-800 mb-4 font-medium overflow-hidden">
+                    <div className="text-gray-800 mb-4 font-medium min-w-0 overflow-x-auto">
                       <MathText text={question.content} />
                     </div>
                     
@@ -141,7 +141,7 @@ export default function StudentExamResult() {
                             <div key={i} className={`flex items-start p-3 border rounded-xl ${isCorrect ? 'bg-emerald-50 border-emerald-200' : isStudentChoice ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200'}`}>
                               <div className="flex-1 flex items-start">
                                 <span className={`font-semibold mr-2 mt-0.5 ${isCorrect ? 'text-emerald-700' : isStudentChoice ? 'text-rose-700' : 'text-gray-700'}`}>{letter}.</span>
-                                <div className={`flex-1 overflow-hidden ${isCorrect ? 'text-emerald-800 font-medium' : isStudentChoice ? 'text-rose-800 font-medium' : 'text-gray-800'}`}><MathText text={cleanOpt} /></div>
+                                <div className={`flex-1 min-w-0 overflow-x-auto ${isCorrect ? 'text-emerald-800 font-medium' : isStudentChoice ? 'text-rose-800 font-medium' : 'text-gray-800'}`}><MathText text={cleanOpt} /></div>
                               </div>
                               {isCorrect && <CheckCircle className="w-5 h-5 text-emerald-500 ml-2 flex-shrink-0" />}
                               {isStudentChoice && !isCorrect && <AlertCircle className="w-5 h-5 text-rose-500 ml-2 flex-shrink-0" />}
@@ -174,7 +174,7 @@ export default function StudentExamResult() {
                             <div key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-xl gap-4 ${studentVal !== undefined && studentVal !== null && !isCorrect ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200'}`}>
                               <div className="flex-1 flex items-start">
                                 <span className="font-semibold text-gray-700 mr-3 mt-0.5">{letter}.</span>
-                                <div className="text-gray-800 flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                                <div className="text-gray-800 flex-1 min-w-0 overflow-x-auto"><MathText text={cleanOpt} /></div>
                               </div>
                               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                                 {studentVal !== undefined && studentVal !== null && (
@@ -207,7 +207,7 @@ export default function StudentExamResult() {
 
                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mt-4">
                       <div className="font-semibold text-indigo-800 mb-2">Lời giải:</div>
-                      <div className="text-gray-700 overflow-hidden">
+                      <div className="text-gray-700 min-w-0 overflow-x-auto">
                         {question.explanation ? (
                           <MathText text={question.explanation} />
                         ) : (

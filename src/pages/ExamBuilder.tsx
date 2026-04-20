@@ -734,7 +734,7 @@ export default function ExamBuilder() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="mt-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm min-w-0 overflow-x-auto">
                       <MathText text={q.content} />
                     </div>
                   )}
@@ -782,7 +782,7 @@ export default function ExamBuilder() {
                         return (
                           <div key={i} className="flex items-start">
                             <span className="font-medium mr-2">{letter}.</span>
-                            <div className="flex-1 overflow-hidden"><MathText text={cleanOpt} /></div>
+                            <div className="flex-1 min-w-0 overflow-x-auto"><MathText text={cleanOpt} /></div>
                           </div>
                         );
                       })}
