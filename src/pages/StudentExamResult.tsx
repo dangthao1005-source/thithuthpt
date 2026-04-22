@@ -103,21 +103,27 @@ export default function StudentExamResult() {
           )}
         </div>
 
-        {submission.incorrectQuestions && submission.incorrectQuestions.length > 0 && (
-          <div className="mb-8 text-left">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-              <BookOpen className="w-5 h-5 mr-2 text-indigo-600" />
-              Lời giải chi tiết các câu sai
-            </h3>
-            <div className="space-y-6">
-              {submission.incorrectQuestions.map((id: string) => {
-                const idx = exam.questions.findIndex((q:any) => q.id === id);
-                const question = exam.questions[idx];
-                if (!question) return null;
+        <div className="mb-8 text-left">
+          <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+            <BookOpen className="w-5 h-5 mr-2 text-indigo-600" />
+            Chi tiết bài làm và Lời giải
+          </h3>
+          <div className="space-y-6">
+            {exam.questions.map((question: any, idx: number) => {
+              const id = question.id;
+
+              const isQuestionIncorrect = submission.incorrectQuestions?.includes(id);
 
                 return (
-                  <div key={id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                    <div className="font-bold text-lg text-indigo-700 mb-3">Câu {idx + 1}</div>
+                  <div key={id} className={`bg-white border ${isQuestionIncorrect ? 'border-rose-200' : 'border-emerald-200'} rounded-2xl p-6 shadow-sm`}>
+                    <div className={`font-bold text-lg mb-3 flex items-center ${isQuestionIncorrect ? 'text-rose-700' : 'text-emerald-700'}`}>
+                      Câu {idx + 1}
+                      {!isQuestionIncorrect ? (
+                        <span className="ml-2 inline-flex items-center text-sm bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full"><CheckCircle className="w-4 h-4 mr-1"/> Đúng</span>
+                      ) : (
+                        <span className="ml-2 inline-flex items-center text-sm bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full"><AlertCircle className="w-4 h-4 mr-1"/> Sai</span>
+                      )}
+                    </div>
                     <div className="text-gray-800 mb-4 font-medium min-w-0 overflow-x-auto">
                       <MathText text={question.content} />
                     </div>
@@ -192,6 +198,35 @@ export default function StudentExamResult() {
                       </div>
                     )}
 
+                    {question.type === 'short_answer' && (
+                      <div className="mt-4 mb-6 p-4 border rounded-xl bg-gray-50 border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-700 mr-2">Bạn đã nhập:</span>
+                            {(() => {
+                                let studentAns = '';
+                                try {
+                                  const parsedAnswers = typeof submission.answers === 'string' ? JSON.parse(submission.answers) : submission.answers;
+                                  studentAns = parsedAnswers[id] || '';
+                                } catch (e) {}
+                                const isCorrect = studentAns.trim() === (question.correctAnswer || '').trim();
+                                return (
+                                  <span className={`font-bold px-3 py-1 rounded-lg border ${isCorrect ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                    {studentAns || '(Trống)'}
+                                  </span>
+                                );
+                            })()}
+                          </div>
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-700 mr-2">Đáp án đúng:</span>
+                            <span className="font-bold px-3 py-1 rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              {question.correctAnswer || '(Chưa có)'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {question.imageUrls && question.imageUrls.length > 0 && (
                       <div className="mb-4 space-y-4">
                         {question.imageUrls.map((url: string, imgIdx: number) => (
@@ -217,10 +252,9 @@ export default function StudentExamResult() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+            })}
           </div>
-        )}
+        </div>
 
         <button
           onClick={() => {
