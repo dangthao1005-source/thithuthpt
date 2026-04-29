@@ -12,6 +12,7 @@ export interface AppUser {
   name: string;
   className?: string;
   facebook?: string;
+  zalo?: string;
   createdAt: string;
 }
 

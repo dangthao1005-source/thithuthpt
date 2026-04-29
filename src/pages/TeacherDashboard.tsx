@@ -34,7 +34,7 @@ export default function TeacherDashboard() {
   const [updateStudentError, setUpdateStudentError] = useState('');
   const [isUpdatingStudent, setIsUpdatingStudent] = useState(false);
   const [editingFbStudent, setEditingFbStudent] = useState<any>(null);
-  const [editFbData, setEditFbData] = useState({ facebook: '' });
+  const [editFbData, setEditFbData] = useState({ facebook: '', zalo: '' });
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [examToDelete, setExamToDelete] = useState<string | null>(null);
@@ -210,6 +210,7 @@ export default function TeacherDashboard() {
           const email = row['Email']?.toString().trim();
           const password = row['Password'] || row['Mật khẩu'];
           const facebook = row['Facebook'] || row['FB'] || row['Link Facebook'] || '';
+          const zalo = row['Zalo'] || row['SĐT Zalo'] || row['Số điện thoại'] || row['Phone'] || '';
           const role = row['Role'];
 
           // Skip if role is explicitly set to something other than student
@@ -227,6 +228,7 @@ export default function TeacherDashboard() {
                 className: String(className).trim(),
                 password: String(password),
                 facebook: String(facebook).trim(),
+                zalo: String(zalo).trim(),
                 role: 'student',
                 createdAt: new Date().toISOString()
               });
@@ -244,6 +246,7 @@ export default function TeacherDashboard() {
                     className: String(className).trim(),
                     password: String(password),
                     facebook: String(facebook).trim(),
+                    zalo: String(zalo).trim(),
                     role: 'student',
                     createdAt: new Date().toISOString()
                   });
@@ -423,12 +426,13 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleUpdateFacebook = async (e: React.FormEvent) => {
+  const handleUpdateContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFbStudent) return;
     try {
       await updateDoc(doc(db, 'users', editingFbStudent.id), {
-        facebook: editFbData.facebook
+        facebook: editFbData.facebook,
+        zalo: editFbData.zalo
       });
       setEditingFbStudent(null);
       fetchData();
@@ -595,7 +599,7 @@ export default function TeacherDashboard() {
             onClick={() => setActiveTab('facebook')}
             className={`px-6 py-2.5 rounded-full font-semibold flex items-center transition-all duration-200 shadow-sm ${activeTab === 'facebook' ? 'bg-indigo-600 text-white shadow-md transform -translate-y-0.5' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
           >
-            <MessageCircle className="w-5 h-5 mr-2" /> Liên hệ Facebook
+            <MessageCircle className="w-5 h-5 mr-2" /> Liên hệ Học sinh
           </button>
         </div>
 
@@ -665,6 +669,17 @@ export default function TeacherDashboard() {
                       <div className="flex items-center space-x-3">
                         {exam.status === 'published' && (
                           <>
+                            <button
+                              onClick={() => {
+                                const message = `🚨 BÀI TẬP MỚI 🚨\n\n📌 ${exam.title || 'Bài tập'}\n⏱️ Thời gian: ${exam.duration} phút\n${exam.startTime ? `⏰ Mở: ${new Date(exam.startTime).toLocaleString('vi-VN')}\n` : ''}${exam.endTime ? `⏳ Hạn chót: ${new Date(exam.endTime).toLocaleString('vi-VN')}\n` : ''}\n👉 Các em chú ý đăng nhập vào hệ thống để làm bài đúng hạn nhé!\n🔗 Link: http://thithuthpt-8uqk.vercel.app`;
+                                navigator.clipboard.writeText(message).catch(err => console.error("Failed to copy message:", err));
+                                window.open('https://chat.zalo.me/', '_blank', 'noopener,noreferrer');
+                              }}
+                              className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium text-sm transition-colors flex items-center"
+                              title="Mở Zalo và Copy thông báo"
+                            >
+                              <MessageCircle className="w-4 h-4 mr-1.5" /> Báo bài
+                            </button>
                             <button
                               onClick={() => {
                                 setExamToExtend(exam);
@@ -858,8 +873,8 @@ export default function TeacherDashboard() {
           <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Danh sách liên hệ Facebook</h3>
-                <p className="text-sm text-gray-500 mt-1">Quản lý link Facebook để gửi thông báo cho học sinh</p>
+                <h3 className="text-lg font-bold text-gray-900">Danh sách liên hệ Học sinh</h3>
+                <p className="text-sm text-gray-500 mt-1">Quản lý link Facebook và số Zalo để gửi thông báo cho học sinh</p>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -869,12 +884,41 @@ export default function TeacherDashboard() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Họ tên</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Lớp</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Link Facebook</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Facebook</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Zalo</th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {students.map((student) => (
+                  {students.map((student) => {
+                    const now = new Date();
+                    const assignedExamsList = exams.filter(exam => 
+                      exam.status === 'published' && 
+                      exam.assignedClasses && 
+                      exam.assignedClasses.includes(student.className)
+                    );
+                    const incompleteExams = assignedExamsList.filter(exam => {
+                      const isOpened = (!exam.startTime || new Date(exam.startTime) <= now);
+                      if (!isOpened) return false;
+                      if (!exam.submissionSummary) return true;
+                      return !exam.submissionSummary.some((s: any) => s.studentId === student.uid);
+                    });
+
+                    const handleContactClick = (e: React.MouseEvent) => {
+                      if (incompleteExams.length > 0) {
+                        const listString = incompleteExams.map((ex, idx) => `📌 ${idx + 1}. ${ex.title || 'Bài tập'}`).join('\n');
+                        const message = `🚨 NHẮC NHỞ LÀM BÀI TẬP 🚨\n\nChào ${student.name}, hệ thống ghi nhận em còn các bài tập sau chưa hoàn thành (hoặc giáo viên chưa đồng bộ điểm):\n${listString}\n\n👉 Em vui lòng đăng nhập vào hệ thống để kiểm tra và làm bài nhé!\n🔗 Link: http://thithuthpt-8uqk.vercel.app`;
+                        
+                        navigator.clipboard.writeText(message).catch(err => {
+                          console.error("Failed to copy message:", err);
+                        });
+                      } else {
+                        const message = `Chào ${student.name}, em đã hoàn thành tất cả bài tập được giao. Chúc em học tập tốt!`;
+                        navigator.clipboard.writeText(message).catch(err => console.error(err));
+                      }
+                    };
+
+                    return (
                     <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{student.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -885,8 +929,32 @@ export default function TeacherDashboard() {
                       <td className="px-6 py-4 text-sm text-gray-600">{student.email}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {student.facebook ? (
-                          <a href={student.facebook} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
-                            <MessageCircle className="w-4 h-4 mr-1" /> Nhắn tin
+                          <a 
+                            href={student.facebook} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            onClick={handleContactClick}
+                            className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center"
+                            title="Mở Facebook và Copy tin nhắn nhắc nhở"
+                          >
+                            <MessageCircle className="w-4 h-4 mr-1.5" /> Nhắn tin
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 italic">Chưa cập nhật</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {student.zalo ? (
+                          <a 
+                            href={`https://chat.zalo.me/?phone=${student.zalo}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            onClick={handleContactClick}
+                            className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center"
+                            title="Mở Zalo và Copy tin nhắn nhắc nhở"
+                          >
+                            <MessageCircle className="w-4 h-4 mr-1.5" />
+                            {student.zalo}
                           </a>
                         ) : (
                           <span className="text-gray-400 italic">Chưa cập nhật</span>
@@ -896,16 +964,17 @@ export default function TeacherDashboard() {
                         <button
                           onClick={() => {
                             setEditingFbStudent(student);
-                            setEditFbData({ facebook: student.facebook || '' });
+                            setEditFbData({ facebook: student.facebook || '', zalo: student.zalo || '' });
                           }}
                           className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Cập nhật Facebook"
+                          title="Cập nhật Liên hệ"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -913,16 +982,22 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* Edit Facebook Modal */}
+      {/* Edit Contact Modal */}
       {editingFbStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Cập nhật Link Facebook</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Cập nhật Liên hệ</h3>
             <p className="text-sm text-gray-600 mb-4">Học sinh: <span className="font-semibold">{editingFbStudent.name}</span></p>
-            <form onSubmit={handleUpdateFacebook}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Đường link Facebook</label>
-                <input type="url" value={editFbData.facebook} onChange={e => setEditFbData({...editFbData, facebook: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="https://facebook.com/..." />
+            <form onSubmit={handleUpdateContact}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Đường link Facebook</label>
+                  <input type="url" value={editFbData.facebook} onChange={e => setEditFbData({...editFbData, facebook: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="https://facebook.com/..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Số điện thoại Zalo</label>
+                  <input type="tel" value={editFbData.zalo} onChange={e => setEditFbData({...editFbData, zalo: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="0912..." />
+                </div>
               </div>
               <div className="pt-4 flex justify-end space-x-3">
                 <button type="button" onClick={() => setEditingFbStudent(null)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
@@ -933,6 +1008,89 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Viewing Student Exams Modal */}
+      {viewingStudentExams && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Bài làm của học sinh</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  <span className="font-semibold text-indigo-600">{viewingStudentExams.name}</span> - Lớp {viewingStudentExams.className}
+                </p>
+              </div>
+              <button onClick={() => setViewingStudentExams(null)} className="text-gray-400 hover:text-gray-500 p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              {(() => {
+                const assignedExamsList = exams.filter(exam => 
+                  exam.status === 'published' && 
+                  exam.assignedClasses && 
+                  exam.assignedClasses.includes(viewingStudentExams.className)
+                );
+
+                if (assignedExamsList.length === 0) {
+                  return <div className="text-center py-8 text-gray-500">Chưa có bài thi nào được giao cho lớp này.</div>;
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {assignedExamsList.map(exam => {
+                      const submission = exam.submissionSummary?.find((s: any) => s.studentId === viewingStudentExams.uid);
+                      const isCompleted = !!submission;
+                      
+                      return (
+                        <div key={exam.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <h4 className="font-semibold text-gray-900 text-lg">{exam.title}</h4>
+                            <div className="flex items-center text-sm text-gray-500 mt-1 space-x-4">
+                              <span className="flex items-center"><Clock className="w-3.5 h-3.5 mr-1" /> {exam.duration} phút</span>
+                              {isCompleted ? (
+                                <span className="flex items-center text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md">
+                                  <CheckCircle className="w-3.5 h-3.5 mr-1" /> Đã nộp bài
+                                </span>
+                              ) : (
+                                <span className="flex items-center text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-md">
+                                  <AlertCircle className="w-3.5 h-3.5 mr-1" /> Chưa làm
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between sm:justify-end gap-4 min-w-[140px]">
+                            {isCompleted && (
+                              <div className="text-right">
+                                <div className="text-2xl font-black text-indigo-600 leading-none">{submission.score}</div>
+                                <div className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mt-1">Điểm số</div>
+                              </div>
+                            )}
+                            
+                            {isCompleted && (
+                              <button
+                                onClick={() => {
+                                  // Navigate to the result page
+                                  window.open(`/teacher/exam/${exam.id}/result/${viewingStudentExams.uid}`, '_blank');
+                                }}
+                                className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-medium text-sm transition-colors whitespace-nowrap"
+                              >
+                                Xem chi tiết
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

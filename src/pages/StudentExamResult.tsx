@@ -227,6 +227,64 @@ export default function StudentExamResult() {
                       </div>
                     )}
 
+                    {question.type === 'short_answer' && (
+                      <div className="mt-4 mb-6 p-4 border rounded-xl bg-gray-50 border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-700 mr-2">Bạn đã nhập:</span>
+                            {(() => {
+                                let studentAns = '';
+                                try {
+                                  const parsedAnswers = typeof submission.answers === 'string' ? JSON.parse(submission.answers) : submission.answers;
+                                  studentAns = parsedAnswers[id] || '';
+                                } catch (e) {}
+                                const isCorrect = studentAns.trim() === (question.correctAnswer || '').trim();
+                                return (
+                                  <span className={`font-bold px-3 py-1 rounded-lg border ${isCorrect ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                    {studentAns || '(Trống)'}
+                                  </span>
+                                );
+                            })()}
+                          </div>
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-700 mr-2">Đáp án đúng:</span>
+                            <span className="font-bold px-3 py-1 rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              {question.correctAnswer || '(Chưa có)'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === 'short_answer' && (
+                      <div className="mt-4 mb-6 p-4 border rounded-xl bg-gray-50 border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-700 mr-2">Bạn đã nhập:</span>
+                            {(() => {
+                                let studentAns = '';
+                                try {
+                                  const parsedAnswers = typeof submission.answers === 'string' ? JSON.parse(submission.answers) : submission.answers;
+                                  studentAns = parsedAnswers[id] || '';
+                                } catch (e) {}
+                                const isCorrect = studentAns.trim() === (question.correctAnswer || '').trim();
+                                return (
+                                  <span className={`font-bold px-3 py-1 rounded-lg border ${isCorrect ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                    {studentAns || '(Trống)'}
+                                  </span>
+                                );
+                            })()}
+                          </div>
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-700 mr-2">Đáp án đúng:</span>
+                            <span className="font-bold px-3 py-1 rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              {question.correctAnswer || '(Chưa có)'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {question.imageUrls && question.imageUrls.length > 0 && (
                       <div className="mb-4 space-y-4">
                         {question.imageUrls.map((url: string, imgIdx: number) => (

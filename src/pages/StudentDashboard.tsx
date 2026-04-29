@@ -10,25 +10,36 @@ export default function StudentDashboard() {
   const [exams, setExams] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showFbModal, setShowFbModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [fbLink, setFbLink] = useState(appUser?.facebook || '');
-  const [isUpdatingFb, setIsUpdatingFb] = useState(false);
+  const [zaloPhone, setZaloPhone] = useState(appUser?.zalo || '');
+  const [isUpdatingContact, setIsUpdatingContact] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleUpdateFacebook = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (appUser && (!appUser.facebook || !appUser.zalo)) {
+      setShowContactModal(true);
+    } else {
+      setShowContactModal(false);
+    }
+  }, [appUser]);
+
+  const handleUpdateContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appUser?.uid) return;
-    setIsUpdatingFb(true);
+    setIsUpdatingContact(true);
     try {
       await updateDoc(doc(db, 'users', appUser.uid), {
-        facebook: fbLink
+        facebook: fbLink,
+        zalo: zaloPhone
       });
-      setShowFbModal(false);
-      alert('Cập nhật Facebook thành công! Vui lòng đăng xuất và đăng nhập lại để thấy thay đổi.');
+      setShowContactModal(false);
+      alert('Cập nhật liên hệ thành công!');
+      window.location.reload();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${appUser.uid}`);
     } finally {
-      setIsUpdatingFb(false);
+      setIsUpdatingContact(false);
     }
   };
 
@@ -114,11 +125,6 @@ export default function StudentDashboard() {
               <h1 className="text-xl font-bold text-white tracking-wide">Học sinh: {appUser?.name} <span className="font-normal opacity-80">({appUser?.className})</span></h1>
             </div>
             <div className="flex items-center space-x-4">
-              {!appUser?.facebook && (
-                <button onClick={() => setShowFbModal(true)} className="text-blue-100 hover:text-white flex items-center transition-colors font-medium mr-2">
-                  <MessageCircle className="w-5 h-5 mr-1" /> Cập nhật Facebook
-                </button>
-              )}
               <button onClick={fetchData} disabled={isRefreshing} className="text-blue-100 hover:text-white flex items-center transition-colors font-medium mr-2">
                 <RefreshCw className={`w-5 h-5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Làm mới
               </button>
@@ -130,37 +136,42 @@ export default function StudentDashboard() {
         </div>
       </nav>
 
-      {/* Update Facebook Modal */}
-      {showFbModal && (
+      {/* Update Contact Modal */}
+      {showContactModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl transform transition-all">
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-xl font-bold text-gray-900">Cập nhật Link Facebook</h3>
-              <button onClick={() => setShowFbModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
+              <h3 className="text-xl font-bold text-gray-900">Cập nhật thông tin liên hệ</h3>
             </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Để giảm tải dung lượng máy chủ và tối ưu hóa tốc độ hệ thống, vui lòng cập nhật đường link Facebook cá nhân của bạn.
+            <p className="text-sm font-medium text-rose-600 mb-4 bg-rose-50 p-3 rounded-lg border border-rose-100">
+              Bắt buộc cập nhật Link Facebook và SĐT Zalo để hệ thống sử dụng bình thường.
             </p>
-            <form onSubmit={handleUpdateFacebook}>
+            <form onSubmit={handleUpdateContact} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Đường link Facebook</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Đường link ID Facebook</label>
                 <input 
                   type="url" 
                   value={fbLink} 
                   onChange={e => setFbLink(e.target.value)} 
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                  className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
                   placeholder="https://facebook.com/..." 
                   required
                 />
               </div>
-              <div className="pt-4 flex justify-end space-x-3">
-                <button type="button" onClick={() => setShowFbModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                  Hủy
-                </button>
-                <button type="submit" disabled={isUpdatingFb} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
-                  {isUpdatingFb ? 'Đang lưu...' : 'Lưu thay đổi'}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại Zalo</label>
+                <input 
+                  type="tel" 
+                  value={zaloPhone} 
+                  onChange={e => setZaloPhone(e.target.value)} 
+                  className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                  placeholder="0912..." 
+                  required
+                />
+              </div>
+              <div className="pt-2 flex justify-end">
+                <button type="submit" disabled={isUpdatingContact || !fbLink || !zaloPhone} className="w-full px-4 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors">
+                  {isUpdatingContact ? 'Đang lưu...' : 'Lưu thông tin'}
                 </button>
               </div>
             </form>
