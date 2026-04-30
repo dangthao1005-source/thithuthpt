@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3, Loader2, RefreshCw, Eye } from 'lucide-react';
+import { ArrowLeft, Users, CheckCircle, XCircle, Trash2, AlertCircle, BarChart3, Loader2, RefreshCw, Eye, Send } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 import MathText from '../components/MathText';
 
@@ -314,7 +314,22 @@ export default function ExamResults() {
                 </div>
                 Chưa có học sinh nào nộp bài.
               </li>
-            ) : uniqueSubmissions.map((sub) => (
+            ) : uniqueSubmissions.map((sub) => {
+              const student = students.find(s => s.uid === sub.studentId) || { name: 'Học sinh' };
+              
+              const handleNotify = () => {
+                const message = `🎉 KẾT QUẢ BÀI THI 🎉\n\nChào ${student.name}, em đã hoàn thành bài thi: "${exam.title || 'Bài tập'}"\n\n🎯 Điểm số: ${sub.score.toFixed(2)} / 10 điểm.\n👉 Hãy tiếp tục cố gắng nhé!\n🔗 Xem lại bài làm: https://thithuthpt-8uqk.vercel.app/`;
+                navigator.clipboard.writeText(message).catch(err => console.error("Failed to copy", err));
+                if (student.zalo) {
+                  window.open(`https://chat.zalo.me/?phone=${student.zalo}`, '_blank', 'noopener,noreferrer');
+                } else if (student.facebook) {
+                  window.open(student.facebook, '_blank', 'noopener,noreferrer');
+                } else {
+                  window.open(`https://chat.zalo.me/`, '_blank', 'noopener,noreferrer');
+                }
+              };
+
+              return (
               <li key={sub.id} className="px-6 py-6 hover:bg-gray-50/50 transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center mb-4 sm:mb-0">
@@ -333,6 +348,13 @@ export default function ExamResults() {
                       <div className="bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 mr-4">
                         <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{sub.score.toFixed(2)} <span className="text-base text-indigo-300 font-bold">/ 10</span></p>
                       </div>
+                      <button
+                        onClick={handleNotify}
+                        className="text-blue-500 hover:text-blue-700 p-2.5 rounded-xl hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100 mr-2"
+                        title="Báo kết quả qua Zalo/FB"
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
                       <button
                         onClick={() => handleRegrade(sub)}
                         disabled={regradingId === sub.id}
@@ -372,7 +394,8 @@ export default function ExamResults() {
                   </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       </div>
