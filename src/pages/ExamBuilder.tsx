@@ -402,6 +402,37 @@ export default function ExamBuilder() {
     setQuestions(newQs);
   };
 
+  const [uploadingExplanationImageId, setUploadingExplanationImageId] = useState<string | null>(null);
+
+  const handleExplanationImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const imgFile = e.target.files?.[0];
+    if (!imgFile) return;
+
+    setUploadingExplanationImageId(index.toString());
+    try {
+      const dataUrl = await processImage(imgFile);
+      
+      const newQs = [...questions];
+      if (!newQs[index].explanationImageUrls) {
+        newQs[index].explanationImageUrls = [];
+      }
+      newQs[index].explanationImageUrls.push(dataUrl);
+      setQuestions(newQs);
+    } catch (err) {
+      console.error("Image upload error:", err);
+      alert("Lỗi khi xử lý ảnh.");
+    } finally {
+      setUploadingExplanationImageId(null);
+      e.target.value = '';
+    }
+  };
+
+  const removeExplanationImage = (qIndex: number, imgIndex: number) => {
+    const newQs = [...questions];
+    newQs[qIndex].explanationImageUrls.splice(imgIndex, 1);
+    setQuestions(newQs);
+  };
+
   const handleSaveQuestionContent = (index: number) => {
     const newQs = [...questions];
     newQs[index].content = editingContent;
@@ -877,7 +908,39 @@ export default function ExamBuilder() {
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-sm font-medium text-gray-700">Lời giải chi tiết (tùy chọn)</label>
+                      <div className="relative">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          id={`expl-img-upload-${index}`}
+                          className="hidden" 
+                          onChange={(e) => handleExplanationImageUpload(index, e)}
+                        />
+                        <label 
+                          htmlFor={`expl-img-upload-${index}`}
+                          className="cursor-pointer inline-flex items-center px-4 py-2 border border-indigo-200 shadow-sm text-sm font-semibold rounded-xl text-indigo-700 bg-white hover:bg-indigo-50 transition-colors"
+                        >
+                          {uploadingExplanationImageId === index.toString() ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
+                          Thêm ảnh lời giải
+                        </label>
+                      </div>
                     </div>
+                    {q.explanationImageUrls && q.explanationImageUrls.length > 0 && (
+                      <div className="mt-3 mb-3 space-y-3">
+                        {q.explanationImageUrls.map((url: string, imgIdx: number) => (
+                          <div key={imgIdx} className="relative inline-block mr-3">
+                            <img src={url} alt={`Hình ảnh lời giải ${imgIdx + 1}`} className="max-h-48 rounded border border-gray-200" />
+                            <button 
+                              onClick={() => removeExplanationImage(index, imgIdx)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow-sm"
+                              title="Xóa ảnh"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <textarea
                       value={q.explanation || ''}
                       onChange={(e) => {

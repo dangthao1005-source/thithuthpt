@@ -300,11 +300,20 @@ export default function StudentExamResult() {
 
                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mt-4">
                       <div className="font-semibold text-indigo-800 mb-2">Lời giải:</div>
+                      {question.explanationImageUrls && question.explanationImageUrls.length > 0 && (
+                        <div className="mb-4 space-y-4">
+                          {question.explanationImageUrls.map((url: string, imgIdx: number) => (
+                            <img key={imgIdx} src={url} alt={`Lời giải câu ${idx + 1} - ảnh ${imgIdx + 1}`} className="max-w-full h-auto rounded-md border border-gray-200" />
+                          ))}
+                        </div>
+                      )}
                       <div className="text-gray-700 min-w-0 overflow-x-auto">
                         {question.explanation ? (
                           <MathText text={question.explanation} />
                         ) : (
-                          <span className="italic text-gray-500">Giáo viên chưa cung cấp lời giải cho câu hỏi này.</span>
+                          (!question.explanationImageUrls || question.explanationImageUrls.length === 0) && (
+                            <span className="italic text-gray-500">Giáo viên chưa cung cấp lời giải cho câu hỏi này.</span>
+                          )
                         )}
                       </div>
                     </div>
