@@ -210,6 +210,42 @@ export default function ExamResults() {
     setViewingSubmissionDetails(null);
   };
 
+  const handleSendSummaryZalo = () => {
+    const doneStudents = students.filter(student => 
+      uniqueSubmissions.some(sub => sub.studentId === student.uid)
+    ).map(student => {
+      const sub = uniqueSubmissions.find(s => s.studentId === student.uid);
+      return { name: student.name, score: sub?.score || 0 };
+    }).sort((a, b) => b.score - a.score);
+
+    const notDoneStudents = students.filter(student => 
+      !uniqueSubmissions.some(sub => sub.studentId === student.uid)
+    );
+
+    let message = `📊 KẾT QUẢ BÀI THI: ${exam.title || 'Bài tập'} 📊\n\n`;
+
+    if (doneStudents.length > 0) {
+      message += `✅ ĐÃ LÀM BÀI (${doneStudents.length}):\n`;
+      doneStudents.forEach((st, idx) => {
+        message += `${idx + 1}. ${st.name}: ${st.score.toFixed(2)} điểm\n`;
+      });
+      message += `\n`;
+    }
+
+    if (notDoneStudents.length > 0) {
+      message += `❌ CHƯA LÀM BÀI (${notDoneStudents.length}):\n`;
+      notDoneStudents.forEach((st, idx) => {
+        message += `${idx + 1}. ${st.name}\n`;
+      });
+      message += `\n`;
+    }
+
+    message += `👉 Link đăng nhập: https://thithuthpt-8uqk.vercel.app/`;
+
+    navigator.clipboard.writeText(message).catch(err => console.error("Failed to copy", err));
+    window.open('https://chat.zalo.me/', '_blank', 'noopener,noreferrer');
+  };
+
   const getScoreDistribution = () => {
     const bins: { name: string, count: number }[] = [];
     for (let i = 0; i <= 20; i++) {
@@ -243,14 +279,24 @@ export default function ExamResults() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchData}
-            disabled={isRefreshing}
-            className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
-          >
-            <RefreshCw className={`w-5 h-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={handleSendSummaryZalo}
+              className="flex items-center px-4 py-2 bg-green-50 text-green-600 rounded-xl font-semibold hover:bg-green-100 transition-colors shadow-sm"
+              title="Gửi tổng hợp điểm qua Zalo (Copy vào Clipboard & Mở Zalo)"
+            >
+              <Send className="w-5 h-5 mr-2" />
+              <span className="hidden sm:inline">Thông báo nhóm</span>
+            </button>
+            <button
+              onClick={fetchData}
+              disabled={isRefreshing}
+              className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
+            >
+              <RefreshCw className={`w-5 h-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
+          </div>
         </div>
 
         {uniqueSubmissions.length > 0 && (
